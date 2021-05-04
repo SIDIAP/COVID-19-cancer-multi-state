@@ -1,5 +1,8 @@
+# DATA PREPARATION FILE
 
-setwd ("M:/Elena - R/Multi-state  cancer")
+######  --------
+######  Set up --------
+# packages ------
 
 library(here)
 library(readxl)
@@ -11,13 +14,7 @@ library(pastecs)
 library(data.table)
 library(mstate)
 
- 
- db <- dbConnect(RPostgreSQL::PostgreSQL(),
-                 dbname = "postgres20v2",
-                 port = 5432,
-                 host = "10.80.192.22", 
-                 user = "omop", 
-                 password = "omop")
+ # database connection -----
 
 # dates ####
 # 1) the date for which we'll identify variables of interest
@@ -124,7 +121,7 @@ rm(first_cancer)
 
 # some patients have more than one cancer diagnosed on the same day
 
-# Some ICD10 codes do not idenitfy the cancer site
+# Some ICD10 codes do not idenitify the cancer site
 # ICD10 C76  Malignant neoplasm of other and ill-defined sites /C80 Malignant neoplasm without specification of site
 # If a patient has more than one code the same day, include only those that are informative
 
@@ -282,14 +279,6 @@ rm(location.db,location.names)
 # observation table
 observation<- tbl(db, sql("SELECT * FROM omop20v2.observation")) 
 
-# get nationality from observation table
-# 3 ways to idenity observations for nationality observation_id>=43788485 
-# OR observation_concept_id == 4087925
-# OR observation_source_value == "agr_nacionalitat" ## best way would be that one but all work
-nationality <- observation %>%
-  filter(observation_source_value == "agr_nacionalitat") %>%
-  collect()
-
 # hospitalisations in 2020
 any.hospital<-tbl(db, sql("SELECT * FROM omop20v2.visit_occurrence")) %>% 
   filter(visit_concept_id==262) %>% 
@@ -330,10 +319,7 @@ MEDEA <- observation %>%
   filter(observation_source_value	=="medea") %>% 
   collect()
 
-# Alcohol
-alcohol <- observation %>%
-  filter(observation_source_value == "ALRIS") %>%
-  collect()
+
 
 # covidmultistatecohorts table
 # this is the table generated using cohort diagnostics
@@ -675,7 +661,7 @@ person <- person %>%
  mutate(solid=ifelse((hematological==0 & cancer==1),1,0)) %>%
 mutate(hem_solid=ifelse(hematological==1,"Hematological",ifelse(solid==1, "Solid", "cancer-free")))  
 
-# variable or other solid cancers
+# variable for other solid cancers
 person <- person %>%
   mutate(other_solid=ifelse(solid==1 &
                             breast==0 &
@@ -826,67 +812,6 @@ prop.table(table(person$medea, useNA = "always"))
 person <- person %>%
   mutate(medea=ifelse(is.na(medea), "Missing", as.character(medea)),
          smoke.all_time=ifelse(is.na(smoke.all_time), "Missing", smoke.all_time)) 
-
-## add nationality 
-person<-person %>% 
-  left_join(nationality %>% 
-              select(person_id, value_as_string) %>% 
-              rename(nationality=value_as_string))
-
-# create new categories for nationality
-person$nationality_cat <- ifelse(person$nationality== "Espanya", "Spain", NA)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Am�rica"), "Central & South America", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Carib"), "Central & South America", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Am�rica del Nord"), "North America", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Europa"), "Europe", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Europa oriental"), "Eastern Europe", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "frica"), "Africa", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "�sia"), "Asia", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Melan�sia"), "Oceania", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Polin�sia"), "Oceania", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Micron�sia"), "Oceania", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Austr�lia i Nova Zelanda��"), "Oceania", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality, "Austr�lia i Nova Zelanda"), "Oceania", person$nationality_cat)
-
-# add oceania to asia
-person$nationality_cat <- ifelse(str_detect(person$nationality_cat, "Oceania"), "Asia", person$nationality_cat)
-person$nationality_cat <- ifelse(str_detect(person$nationality_cat, "Asia"), "Asia & Oceania", person$nationality_cat)
-
-# join north america with western europe
-person$nationality_cat <- ifelse((person$nationality_cat=="North America" |
-                                   person$nationality_cat=="Europe"), "Europe & North America", person$nationality_cat)
-
-rm(nationality)
-
-# alcohol
-# keep most recent observation per person
-alcohol <- alcohol %>% 
-  arrange(person_id, desc(observation_date)) %>% 
-  group_by(person_id) %>% 
-  mutate(seq=1:length(person_id)) 
-
-alcohol <- alcohol %>% 
-  filter(seq==1) %>% 
-  select(-seq)
-
-## categories for alcohol
-# no risk -> 4125550 (Concept id) -> "Very low"
-#  low risk -> 4267416 (Concept id) -> "Low"
-# high risk -> 4328749 (Concept id) -> "High
-alcohol <- alcohol %>%
-  mutate(alcohol=ifelse(value_as_concept_id==4125550, "No risk", 
-                        ifelse(value_as_concept_id==4267416 ,"Low risk",
-                               ifelse(value_as_concept_id==4328749 ,"High risk", NA))))
-
-person<-person %>% 
-  left_join(alcohol %>% 
-              select(person_id, alcohol)) 
-
-# add missing category
-person <- person %>%
-  mutate(alcohol=ifelse(is.na(alcohol), "Missing", alcohol))
-
-rm(alcohol)
 
 ## variable for age at cancer diagnosis
 # years since cancer diagnosis
@@ -1437,11 +1362,6 @@ covid.data<-covid.data %>%
                                                           NA)))))))
 table(covid.data$age_gr, useNA = "always")
 
-covid.data <- covid.data %>%
-  mutate(los_hospi_cat= ifelse(los_hospi<=3, "3 days or less",
-                               ifelse(los_hospi<=7, ">3 to 7 days",
-                                      ifelse(los_hospi<=14, ">7 to 14days",
-                                             ifelse(los_hospi<=30, ">14 to 30 days", "More than 30 days")))))
 
   # as factors----
 covid.data$age_gr <- factor(covid.data$age_gr, 
@@ -1465,20 +1385,7 @@ covid.data$smoke.all_time <-   factor(covid.data$smoke.all_time,
 covid.data$hem_solid <- factor(covid.data$hem_solid,
                                levels = c("cancer-free", "Solid", "Hematological"))
 
-covid.data$alcohol <- factor(covid.data$alcohol,
-                               levels = c("No risk", "Low risk", "High risk", "Missing"))
-  
-covid.data$nationality_cat <- factor(covid.data$nationality_cat,
-                             levels = c("Spain", "Europe & North America", "Eastern Europe",
-                                        "Central & South America", "Asia & Oceania", "Africa"))
 
-
-covid.data$los_hospi_cat <-   factor(covid.data$los_hospi_cat, 
-                                     levels =   c("3 days or less", 
-                                    ">3 to 7 days",
-                                    ">7 to 14days",
-                                    ">14 to 30 days",
-                                    "More than 30 days")) 
 
   # add vars to r dataframes ----
   r <- as.data.frame(r) %>% 
