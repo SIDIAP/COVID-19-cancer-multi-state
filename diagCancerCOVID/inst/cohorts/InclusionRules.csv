@@ -1,0 +1,3 @@
+cohortName,ruleSequence,ruleName,cohortId
+[MultiStateCovid] COVID-19 hosp acq,0,No prior diagnosis,491
+[MultiStateCovid] COVID-19 hosp acq,1,No prior positive test,491
