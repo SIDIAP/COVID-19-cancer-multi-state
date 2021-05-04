@@ -1,0 +1,122 @@
+---
+title: "Flowchart"
+output:
+  html_document:
+    code_folding: hide
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, comment = FALSE, 
+                      cache.lazy = FALSE)
+```
+## Flowchart
+
+```{r libray, echo=FALSE}
+library(dplyr)
+library(DiagrammeR)
+library(DiagrammeRsvg)
+library(rsvg)
+```
+
+```{r data}
+#detach("package:DiagrammeRsvg", unload=TRUE)
+
+ 
+setwd ("M:/Elena - R/Multi-state  cancer/")
+ load("1 data prep/exclusion.RData")
+ load("1 data prep/working.data.Rda")
+
+
+exclusion_table$N_current<-as.numeric(exclusion_table$N_current)
+
+
+a <- covid.data %>%
+     filter(smoke.all_time!="Missing") %>%
+    filter(medea!="Missing")
+
+
+b <- covid.data %>%
+     filter(medea=="Missing"| smoke.all_time=="Missing")
+
+
+exclusion_table<-rbind(exclusion_table,
+                       c(nrow(a),
+                         "Without information on smoking status or the MEDEA deprivation index",nrow(b)))
+
+exclusion_table$N_current<-as.numeric(exclusion_table$N_current)
+# col = c(exclusion_table$N_current[-1]) 
+
+# exclusion_table <- exclusion_table %>%
+         #          mutate(excluded=c(0,N_current-col)[-14])
+
+exclusion_table$excluded<-as.numeric(exclusion_table$excluded)
+
+rownames(summary.characteristics2)<-str_replace(rownames(summary.characteristics2) , "hematological", "hematological malignancy")
+## change format dates
+exclusion_table  <- exclusion_table %>%
+  mutate(exclusion_reason= str_replace(exclusion_reason, "2020-02-29", "29-02-2020" ))
+  mutate(exclusion_reason= str_replace(exclusion_reason, "2020-03-01", "01-03-2020" ))
+
+```
+
+```{r flow}
+flow1 <- grViz("
+digraph a_nice_graph
+      {
+      
+      node [fontname = Times, shape = box, color = black, penwidth = 1, style = lisrel]
+      '@@1';'@@2';'@@3';'@@4';'@@5';'@@6';'@@7';'@@8';
+       node [fontname = Times, shape = box, color = '#FF8700', penwidth = 1, style = lisrel]
+      '@@9';
+      
+      blank1[label = '', width = 0.01, height = 0.01]
+      blank2[label = '', width = 0.01, height = 0.01]
+      blank3[label = '', width = 0.01, height = 0.01]
+      blank4[label = '', width = 0.01, height = 0.01]
+
+    
+      '@@1' -> blank1[ dir = none ];
+      blank1 -> '@@2'[ minlen = 0 ,arrowhead = none, tailport = T];
+      blank1 -> '@@3' ;  
+      '@@3' -> blank2[dir = none];
+      blank2 -> '@@4'[ minlen = 0 ,arrowhead = none, tailport = T];
+      blank2 -> '@@5';
+      '@@5' -> blank3[dir = none];
+      blank3 -> '@@6'[ minlen = 0 ,arrowhead = none, tailport = T];
+      blank3 -> '@@7'
+      '@@7' -> blank4[dir = none];
+      blank4 -> '@@8'[ minlen = 0 ,arrowhead = none, tailport = T];
+      blank4 -> '@@9'
+
+      
+      }
+      [1]: paste0('SIDIAP population aged &#8805; 18 years on 01-03-2020','\\n','n= ', format(exclusion_table$N_current[4],big.mark = ',', decimal.mark='.'))
+      [2]:  paste0(exclusion_table$exclusion_reason[5], '\\n','n= ', format(exclusion_table$excluded[5],big.mark = ',', decimal.mark='.'))
+      [3]:  paste0('Remaining population', '\\n','n= ', format(exclusion_table$N_current[5],big.mark = ',', decimal.mark='.')) 
+      [4]:  paste0('With a record of a secondary cancer', '\\n', 'before a record of a primary cancer', ', n= ', format(exclusion_table$excluded[6],big.mark = ',', decimal.mark='.'))
+      [5]:  paste0('Remaining population', '\\n','n= ', format(exclusion_table$N_current[6],big.mark = ',', decimal.mark='.')) 
+      [6]:  paste0('Positive SARS-CoV-2 test prior to 01-03-2020, n= ', format(exclusion_table$excluded[7],big.mark = ',', decimal.mark='.'), '\\n', 'COVID-19 diagnosis prior to 01-03-2020, n= ', format(exclusion_table$excluded[8],big.mark = ',', decimal.mark='.'))
+    [7]:  paste0('Remaining population', '\\n','n= ', format(exclusion_table$N_current[8],big.mark = ',', decimal.mark='.'))
+      [8]:  paste0('Hospitalised on 01-03-2020, n= ', format(exclusion_table$excluded[10],big.mark = ',', decimal.mark='.'), '\\n', 'Living in a nursing home on 01-03-2020, n= ', format(exclusion_table$excluded[11],big.mark = ',', decimal.mark='.'))
+       [9]:  paste0('Population included', '\\n','n= ', format(exclusion_table$N_current[11],big.mark = ',', decimal.mark='.')) 
+      ", width = 400,height = 1200)
+
+flow1
+
+
+## error for saving it with font Times -
+
+flow1 %>%
+  export_svg %>% 
+  charToRaw %>% 
+  rsvg %>% 
+  png::writePNG("results/flowchart.png")
+
+```
