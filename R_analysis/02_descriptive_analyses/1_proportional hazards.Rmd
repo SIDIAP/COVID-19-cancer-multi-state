@@ -1,0 +1,1419 @@
+---
+title: 'Proportionality test'
+output:
+  html_document:
+    code_folding: hide
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    fig_width: 8
+    fig_height: 15
+editor_options:
+  chunk_output_type: console
+---
+
+```{r options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, comment = FALSE, 
+                      cache.lazy = FALSE)
+options(scipen=999)
+options(knitr.kable.NA = '')
+```
+
+```{r pack}
+library(survival)
+library(survminer)
+library(dplyr)
+```
+
+```{r data}
+setwd("M:/Elena - R/Multi-state  cancer")
+load("1 data prep/working.data.Rda")
+# to all variable in the environment, group age, select complete cases, group obesity
+
+e<-eapply(.GlobalEnv, function(x) {
+  x<-x%>%
+ mutate(age_gr.b= ifelse(age<=59, "Aged 18 to 59",
+                            ifelse(age<=79, "Aged 60 to 79",
+                                   "Aged 80 or above" ))) %>%
+    mutate(age_gr.b = factor(age_gr.b, levels = c("Aged 18 to 59", "Aged 60 to 79","Aged 80 or above"))) %>%
+    mutate(age_2gr= ifelse(age<70, "Aged 18 to 69",
+                            "Aged 70 or above")) %>%
+    mutate(age_2gr= factor(age_2gr, levels = c("Aged 18 to 69", "Aged 70 or above"))) %>%
+    mutate(smoke.all_time=factor(smoke.all_time))%>%
+    mutate(smoke.all_time=relevel(smoke.all_time, "Never smoker"))%>%
+    mutate(medea=relevel(medea, "U1"))%>%
+    droplevels()
+  output <- x
+}
+)
+
+nms <- names(e)
+for ( n in nms ){
+  assign(n, e[[n]])
+}
+```
+## Graphical check proportionality of variables for the cox model
+
+# Transition 1: From general population to diagnosed with COVID-19
+
+## Prior diagnosis of cancer
+
+### Cancer yes/no
+
+```{r }
+survfit.t1.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.healthy.diagnosis)
+ggsurvplot.event<-ggsurvplot(survfit.t1.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t1.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t1.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t1.cancer <-arrange_ggsurvplots(survfit.t1.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t1.cancer
+
+```
+
+### Years since cancer diagnosis
+```{r}
+
+survfit.t1.c_status <- survfit(Surv(time, status) ~ c_status, 
+                      data = r.healthy.diagnosis)
+
+ggsurvplot.event<-ggsurvplot(survfit.t1.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t1.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,100))+
+  theme(legend.title = element_blank())
+  
+survfit.t1.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurvplot.cloglog
+survfit.t1.c_status <-arrange_ggsurvplots(survfit.t1.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t1.c_status
+```
+
+### Hematological vs solid
+
+```{r}
+survfit.t1.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.healthy.diagnosis)
+
+ggsurvplot.event<-ggsurvplot(survfit.t1.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t1.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t1.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t1.hem_solid <-arrange_ggsurvplots(survfit.t1.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t1.hem_solid
+```
+
+
+## Gender
+```{r}
+survfit.t1.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.healthy.diagnosis)
+
+ggsurvplot.event<-ggsurvplot(survfit.t1.gender, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t1.gender, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+ggsurv.t1.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+
+ggsurv.t1.gender <-arrange_ggsurvplots(ggsurv.t1.gender, print = FALSE, ncol = 1, nrow = 2)
+
+ggsurv.t1.gender 
+```
+
+## Age groups
+```{r}
+survfit.t1.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.healthy.diagnosis)
+
+ggsurv.t1.age_gr<- list(
+  ggsurvplot(survfit.t1.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.age_gr, fun = "cloglog", conf.int =TRUE))
+
+ggsurv.t1.age_gr <-arrange_ggsurvplots(ggsurv.t1.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.age_gr
+
+survfit.t1.age_2gr<-survfit(Surv(time, status) ~ age_2gr, 
+                 data = r.healthy.diagnosis)
+
+ggsurv.t1.age_2gr<- list(
+  ggsurvplot(survfit.t1.age_2gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.age_2gr, fun = "cloglog", conf.int =TRUE))
+
+ggsurv.t1.age_2gr <-arrange_ggsurvplots(ggsurv.t1.age_2gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.age_2gr
+
+```
+
+## Smoke
+```{r}
+survfit.t1.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.healthy.diagnosis)
+
+ggsurv.t1.smoke<- list(
+  ggsurvplot(survfit.t1.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.smoke, fun = "cloglog", conf.int =TRUE))
+
+ggsurv.t1.smoke <-arrange_ggsurvplots(ggsurv.t1.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.smoke
+```
+
+## Medea
+```{r}
+survfit.t1.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.healthy.diagnosis)
+
+ggsurv.t1.medea<- list(
+  ggsurvplot(survfit.t1.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.medea, fun = "cloglog", conf.int =TRUE))
+
+ggsurv.t1.medea <-arrange_ggsurvplots(ggsurv.t1.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.medea
+```
+
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t1.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t1.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t1.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t1.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t1.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t1.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_chronic_kidney_disease
+
+```
+
+###COPD
+```{r}
+survfit.t1.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_copd<- list(
+  ggsurvplot(survfit.t1.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_copd <-arrange_ggsurvplots(ggsurv.t1.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t1.a_dementia<-survfit(Surv(time, status) ~ a_dementia , 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_dementia<- list(
+  ggsurvplot(survfit.t1.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_dementia <-arrange_ggsurvplots(ggsurv.t1.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t1.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_heart_disease<- list(
+  ggsurvplot(survfit.t1.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_heart_disease <-arrange_ggsurvplots(ggsurv.t1.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t1.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t1.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t1.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t1.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_hypertension<- list(
+  ggsurvplot(survfit.t1.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_hypertension <-arrange_ggsurvplots(ggsurv.t1.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t1.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_obesity<- list(
+  ggsurvplot(survfit.t1.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_obesity <-arrange_ggsurvplots(ggsurv.t1.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_obesity
+```
+
+### Type 2 Diabetes
+```{r}
+survfit.t1.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.healthy.diagnosis)
+ggsurv.t1.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t1.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t1.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t1.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t1.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t1.a_t2_diabetes
+```
+
+# Transition 2: From general population to hospitalised with COVID-19
+
+## Prior diagnosis of cancer
+### Cancer yes /no
+
+```{r }
+survfit.t2.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.healthy.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t2.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t2.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t2.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t2.cancer <-arrange_ggsurvplots(survfit.t2.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t2.cancer
+
+```
+
+### Years since cancer diagnosis
+```{r}
+
+survfit.t2.c_status <- survfit(Surv(time, status) ~ c_status, 
+                      data = r.healthy.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t2.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t2.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t2.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t2.c_status <-arrange_ggsurvplots(survfit.t2.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t2.c_status
+```
+
+### Cancer type, hematological or solid vs cancer-free
+
+```{r}
+survfit.t2.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.healthy.hospitalised)
+
+ggsurvplot.event<-ggsurvplot(survfit.t2.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t2.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t2.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t2.hem_solid <-arrange_ggsurvplots(survfit.t2.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t2.hem_solid
+```
+
+
+## Gender
+```{r}
+survfit.t2.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.healthy.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t2.gender, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t2.gender, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+ggsurv.t2.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurv.t2.gender <-arrange_ggsurvplots(ggsurv.t2.gender, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.gender 
+```
+
+## Age groups
+```{r}
+survfit.t2.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.age_gr<- list(
+  ggsurvplot(survfit.t2.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.age_gr, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.age_gr <-arrange_ggsurvplots(ggsurv.t2.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.age_gr
+```
+
+## Smoke
+```{r}
+survfit.t2.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.smoke<- list(
+  ggsurvplot(survfit.t2.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.smoke, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.smoke <-arrange_ggsurvplots(ggsurv.t2.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.smoke
+```
+
+## Medea
+```{r}
+survfit.t2.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.medea<- list(
+  ggsurvplot(survfit.t2.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.medea, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.medea <-arrange_ggsurvplots(ggsurv.t2.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.medea
+```
+
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t2.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t2.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t2.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t2.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t2.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t2.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_chronic_kidney_disease
+
+```
+
+### COPD
+```{r}
+survfit.t2.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_copd<- list(
+  ggsurvplot(survfit.t2.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_copd <-arrange_ggsurvplots(ggsurv.t2.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t2.a_dementia<-survfit(Surv(time, status) ~ a_dementia, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_dementia<- list(
+  ggsurvplot(survfit.t2.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_dementia <-arrange_ggsurvplots(ggsurv.t2.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t2.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_heart_disease<- list(
+  ggsurvplot(survfit.t2.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_heart_disease <-arrange_ggsurvplots(ggsurv.t2.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t2.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t2.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t2.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t2.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_hypertension<- list(
+  ggsurvplot(survfit.t2.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_hypertension <-arrange_ggsurvplots(ggsurv.t2.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t2.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_obesity<- list(
+  ggsurvplot(survfit.t2.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_obesity <-arrange_ggsurvplots(ggsurv.t2.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_obesity
+```
+
+### Type 2 DM
+```{r}
+survfit.t2.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.healthy.hospitalised)
+ggsurv.t2.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t2.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t2.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t2.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t2.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t2.a_t2_diabetes
+```
+
+
+
+# Transition 3: From general population to death
+## Prior diagnosis of cancer
+### Cancer yes/no
+
+```{r }
+survfit.t3.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.healthy.death)
+ggsurvplot.event<-ggsurvplot(survfit.t3.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t3.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t3.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t3.cancer <-arrange_ggsurvplots(survfit.t3.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t3.cancer
+
+```
+
+### Years since cancer diagnosis
+```{r }
+#graphical check proportionality of variables for the cox model
+
+survfit.t3.c_status<-survfit(Surv(time, status) ~ c_status, 
+                 data = r.healthy.death)
+ggsurvplot.event<-ggsurvplot(survfit.t3.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t3.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+survfit.t3.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t3.c_status <-arrange_ggsurvplots(survfit.t3.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t3.c_status
+
+```
+
+### Cancer type, hematological or solid vs cancer-free
+
+```{r}
+survfit.t3.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.healthy.death)
+
+ggsurvplot.event<-ggsurvplot(survfit.t3.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t3.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t3.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t3.hem_solid <-arrange_ggsurvplots(survfit.t3.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t3.hem_solid
+```
+
+
+## Gender
+```{r}
+survfit.t3.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.healthy.death)
+ggsurvplot.event<-ggsurvplot(survfit.t3.gender, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t3.gender, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+ggsurv.t3.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurv.t3.gender <-arrange_ggsurvplots(ggsurv.t3.gender, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.gender 
+```
+
+## Age groups
+```{r}
+survfit.t3.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.healthy.death)
+ggsurv.t3.age_gr<- list(
+  ggsurvplot(survfit.t3.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.age_gr, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.age_gr <-arrange_ggsurvplots(ggsurv.t3.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.age_gr
+```
+
+## Smoke
+```{r}
+survfit.t3.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.healthy.death)
+ggsurv.t3.smoke<- list(
+  ggsurvplot(survfit.t3.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.smoke, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.smoke <-arrange_ggsurvplots(ggsurv.t3.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.smoke
+```
+
+## Medea
+```{r}
+survfit.t3.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.healthy.death)
+ggsurv.t3.medea<- list(
+  ggsurvplot(survfit.t3.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.medea, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.medea <-arrange_ggsurvplots(ggsurv.t3.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.medea
+```
+
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t3.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.healthy.death)
+ggsurv.t3.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t3.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t3.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t3.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.healthy.death)
+ggsurv.t3.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t3.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t3.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_chronic_kidney_disease
+
+```
+
+### COPD
+```{r}
+survfit.t3.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.healthy.death)
+ggsurv.t3.a_copd<- list(
+  ggsurvplot(survfit.t3.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_copd <-arrange_ggsurvplots(ggsurv.t3.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t3.a_dementia<-survfit(Surv(time, status) ~ a_dementia, 
+                 data = r.healthy.death)
+ggsurv.t3.a_dementia<- list(
+  ggsurvplot(survfit.t3.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_dementia <-arrange_ggsurvplots(ggsurv.t3.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t3.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.healthy.death)
+ggsurv.t3.a_heart_disease<- list(
+  ggsurvplot(survfit.t3.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_heart_disease <-arrange_ggsurvplots(ggsurv.t3.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t3.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.healthy.death)
+ggsurv.t3.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t3.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t3.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t3.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.healthy.death)
+ggsurv.t3.a_hypertension<- list(
+  ggsurvplot(survfit.t3.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_hypertension <-arrange_ggsurvplots(ggsurv.t3.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t3.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.healthy.death)
+ggsurv.t3.a_obesity<- list(
+  ggsurvplot(survfit.t3.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_obesity <-arrange_ggsurvplots(ggsurv.t3.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_obesity
+```
+
+### Type 2 DM
+```{r}
+survfit.t3.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.healthy.death)
+ggsurv.t3.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t3.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t3.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t3.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t3.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t3.a_t2_diabetes
+```
+
+
+# Transition 4: From diagnosed with COVID-19 to hospitalised with COVID-19
+## Prior diagnosis of cancer
+### cancer yes/no
+```{r }
+survfit.t4.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.diagnosis.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t4.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t4.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t4.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t4.cancer <-arrange_ggsurvplots(survfit.t4.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t4.cancer
+
+```
+
+
+### Years since cancer diagnosis
+```{r }
+#graphical check proportionality of variables for the cox model
+
+survfit.t4.c_status<-survfit(Surv(time, status) ~ c_status, 
+                 data = r.diagnosis.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t4.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t4.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+survfit.t4.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t4.c_status <-arrange_ggsurvplots(survfit.t4.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t4.c_status
+
+```
+
+
+### Cancer type, hematological or solid vs cancer-free
+
+```{r}
+survfit.t4.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.diagnosis.hospitalised)
+
+ggsurvplot.event<-ggsurvplot(survfit.t4.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t4.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t4.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t4.hem_solid <-arrange_ggsurvplots(survfit.t4.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t4.hem_solid
+```
+
+
+## Gender
+```{r}
+survfit.t4.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.diagnosis.hospitalised)
+ggsurvplot.event<-ggsurvplot(survfit.t4.gender, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t4.gender, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+ggsurv.t4.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurv.t4.gender <-arrange_ggsurvplots(ggsurv.t4.gender, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.gender 
+```
+
+## Age groups
+```{r}
+survfit.t4.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.age_gr<- list(
+  ggsurvplot(survfit.t4.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.age_gr, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.age_gr <-arrange_ggsurvplots(ggsurv.t4.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.age_gr
+```
+
+## Smoke
+```{r}
+survfit.t4.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.smoke<- list(
+  ggsurvplot(survfit.t4.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.smoke, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.smoke <-arrange_ggsurvplots(ggsurv.t4.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.smoke
+```
+
+## Medea
+```{r}
+survfit.t4.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.medea<- list(
+  ggsurvplot(survfit.t4.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.medea, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.medea <-arrange_ggsurvplots(ggsurv.t4.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.medea
+```
+
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t4.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t4.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t4.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t4.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t4.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t4.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_chronic_kidney_disease
+
+```
+
+### COPD
+```{r}
+survfit.t4.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_copd<- list(
+  ggsurvplot(survfit.t4.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_copd <-arrange_ggsurvplots(ggsurv.t4.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t4.a_dementia<-survfit(Surv(time, status) ~ a_dementia, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_dementia<- list(
+  ggsurvplot(survfit.t4.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_dementia <-arrange_ggsurvplots(ggsurv.t4.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t4.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_heart_disease<- list(
+  ggsurvplot(survfit.t4.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_heart_disease <-arrange_ggsurvplots(ggsurv.t4.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t4.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t4.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t4.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t4.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_hypertension<- list(
+  ggsurvplot(survfit.t4.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_hypertension <-arrange_ggsurvplots(ggsurv.t4.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t4.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_obesity<- list(
+  ggsurvplot(survfit.t4.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_obesity <-arrange_ggsurvplots(ggsurv.t4.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_obesity
+```
+
+### Type 2 DM
+```{r}
+survfit.t4.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.diagnosis.hospitalised)
+ggsurv.t4.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t4.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t4.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t4.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t4.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t4.a_t2_diabetes
+```
+
+
+
+
+# Transition 5: From diagnosed with COVID-19 to death
+## Prior diagnosis of cancer
+### cancer yes/no
+```{r }
+survfit.t5.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.diagnosis.death)
+ggsurvplot.event<-ggsurvplot(survfit.t5.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t5.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t5.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t5.cancer <-arrange_ggsurvplots(survfit.t5.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t5.cancer
+
+```
+
+### Years since cancer diagnosis
+```{r }
+#graphical check proportionality of variables for the cox model
+
+survfit.t5.c_status<-survfit(Surv(time, status) ~ c_status, 
+                 data = r.diagnosis.death)
+ggsurvplot.event<-ggsurvplot(survfit.t5.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t5.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+survfit.t5.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t5.c_status <-arrange_ggsurvplots(survfit.t5.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t5.c_status
+
+```
+
+### Cancer type, hematological or solid vs cancer-free
+
+```{r}
+survfit.t5.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.diagnosis.death)
+
+ggsurvplot.event<-ggsurvplot(survfit.t5.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t5.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t5.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t5.hem_solid <-arrange_ggsurvplots(survfit.t5.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t5.hem_solid
+```
+
+## Gender
+```{r}
+survfit.t5.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.diagnosis.death)
+ggsurvplot.event<-ggsurvplot(survfit.t5.gender, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t5.gender, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+ggsurv.t5.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurv.t5.gender <-arrange_ggsurvplots(ggsurv.t5.gender, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.gender 
+```
+
+## Age groups
+```{r}
+survfit.t5.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.diagnosis.death)
+ggsurv.t5.age_gr<- list(
+  ggsurvplot(survfit.t5.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.age_gr, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.age_gr <-arrange_ggsurvplots(ggsurv.t5.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.age_gr
+```
+
+## Smoke
+```{r}
+survfit.t5.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.diagnosis.death)
+ggsurv.t5.smoke<- list(
+  ggsurvplot(survfit.t5.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.smoke, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.smoke <-arrange_ggsurvplots(ggsurv.t5.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.smoke
+```
+
+## Medea
+```{r}
+survfit.t5.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.diagnosis.death)
+ggsurv.t5.medea<- list(
+  ggsurvplot(survfit.t5.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.medea, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.medea <-arrange_ggsurvplots(ggsurv.t5.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.medea
+```
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t5.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t5.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t5.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t5.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t5.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t5.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_chronic_kidney_disease
+
+```
+
+### COPD
+```{r}
+survfit.t5.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_copd<- list(
+  ggsurvplot(survfit.t5.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_copd <-arrange_ggsurvplots(ggsurv.t5.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t5.a_dementia<-survfit(Surv(time, status) ~ a_dementia, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_dementia<- list(
+  ggsurvplot(survfit.t5.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_dementia <-arrange_ggsurvplots(ggsurv.t5.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t5.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_heart_disease<- list(
+  ggsurvplot(survfit.t5.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_heart_disease <-arrange_ggsurvplots(ggsurv.t5.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t5.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t5.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t5.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t5.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_hypertension<- list(
+  ggsurvplot(survfit.t5.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_hypertension <-arrange_ggsurvplots(ggsurv.t5.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t5.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_obesity<- list(
+  ggsurvplot(survfit.t5.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_obesity <-arrange_ggsurvplots(ggsurv.t5.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_obesity
+```
+
+### Type 2 DM
+```{r}
+survfit.t5.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.diagnosis.death)
+ggsurv.t5.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t5.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t5.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t5.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t5.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t5.a_t2_diabetes
+```
+
+# Transition 6: From hospitalised with COVID-19 to death
+## Prior diagnosis of cancer
+### cancer yes/no
+```{r }
+survfit.t6.cancer <- survfit(Surv(time, status) ~ cancer, 
+                      data = r.hospitalised.death)
+ggsurvplot.event<-ggsurvplot(survfit.t6.cancer, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t6.cancer, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+survfit.t6.cancer<- list(ggsurvplot.event, ggsurvplot.cloglog)
+survfit.t6.cancer <-arrange_ggsurvplots(survfit.t6.cancer, print = FALSE, ncol = 1, nrow = 2)
+survfit.t6.cancer
+
+```
+
+### Years since cancer diagnosis
+
+```{r }
+survfit.t6.c_status<-survfit(Surv(time, status) ~ c_status, 
+                 data = r.hospitalised.death)
+ggsurvplot.event<-ggsurvplot(survfit.t6.c_status, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t6.c_status, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+survfit.t6.c_status<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t6.c_status <-arrange_ggsurvplots(survfit.t6.c_status, print = FALSE, ncol = 1, nrow = 2)
+survfit.t6.c_status
+
+```
+
+### Cancer type, hematological or solid vs cancer-free
+```{r}
+survfit.t6.hem_solid <- survfit(Surv(time, status) ~ hem_solid, 
+                      data = r.hospitalised.death)
+
+ggsurvplot.event<-ggsurvplot(survfit.t6.hem_solid, fun = "event", conf.int =TRUE)
+
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+
+ggsurvplot.cloglog<-ggsurvplot(survfit.t6.hem_solid, fun = "cloglog", conf.int =TRUE)
+
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+                          theme(legend.position = "none") 
+  
+
+survfit.t6.hem_solid<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+survfit.t6.hem_solid <-arrange_ggsurvplots(survfit.t6.hem_solid, print = FALSE, ncol = 1, nrow = 2)
+survfit.t6.hem_solid
+```
+
+
+## Gender
+```{r}
+survfit.t6.gender<-survfit(Surv(time, status) ~ gender, 
+                 data = r.hospitalised.death)
+ggsurvplot.event<-ggsurvplot(survfit.t6.gender, fun = "event", conf.int =TRUE)
+ggsurvplot.event$plot<-ggsurvplot.event$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.title = element_blank())
+ggsurvplot.cloglog<-ggsurvplot(survfit.t6.gender, fun = "cloglog", conf.int =TRUE)
+ggsurvplot.cloglog$plot<-ggsurvplot.cloglog$plot+ coord_cartesian(xlim = c(NA,67))+
+  theme(legend.position = "none") 
+  
+
+ggsurv.t6.gender<- list(
+  ggsurvplot.event,
+  ggsurvplot.cloglog)
+ggsurv.t6.gender <-arrange_ggsurvplots(ggsurv.t6.gender, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.gender 
+```
+
+## Age groups
+```{r}
+survfit.t6.age_gr<-survfit(Surv(time, status) ~ age_gr.b, 
+                 data = r.hospitalised.death)
+ggsurv.t6.age_gr<- list(
+  ggsurvplot(survfit.t6.age_gr, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.age_gr, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.age_gr <-arrange_ggsurvplots(ggsurv.t6.age_gr, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.age_gr
+```
+
+## Smoke
+```{r}
+survfit.t6.smoke<-survfit(Surv(time, status) ~ smoke.all_time, 
+                 data = r.hospitalised.death)
+ggsurv.t6.smoke<- list(
+  ggsurvplot(survfit.t6.smoke, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.smoke, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.smoke <-arrange_ggsurvplots(ggsurv.t6.smoke, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.smoke
+```
+
+## Medea
+```{r}
+survfit.t6.medea<-survfit(Surv(time, status) ~ medea, 
+                 data = r.hospitalised.death)
+ggsurv.t6.medea<- list(
+  ggsurvplot(survfit.t6.medea, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.medea, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.medea <-arrange_ggsurvplots(ggsurv.t6.medea, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.medea
+```
+
+## Comorbidities 
+### Autoinmune condition
+```{r}
+survfit.t6.a_autoimmune_condition<-survfit(Surv(time, status) ~ a_autoimmune_condition, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_autoimmune_condition<- list(
+  ggsurvplot(survfit.t6.a_autoimmune_condition, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_autoimmune_condition, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_autoimmune_condition <-arrange_ggsurvplots(ggsurv.t6.a_autoimmune_condition, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_autoimmune_condition 
+```
+
+### Chronic Kidney Disease
+```{r}
+survfit.t6.a_chronic_kidney_disease<-survfit(Surv(time, status) ~ a_chronic_kidney_disease, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_chronic_kidney_disease<- list(
+  ggsurvplot(survfit.t6.a_chronic_kidney_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_chronic_kidney_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_chronic_kidney_disease <-arrange_ggsurvplots(ggsurv.t6.a_chronic_kidney_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_chronic_kidney_disease
+
+```
+
+### COPD
+```{r}
+survfit.t6.a_copd<-survfit(Surv(time, status) ~ a_copd, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_copd<- list(
+  ggsurvplot(survfit.t6.a_copd, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_copd, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_copd <-arrange_ggsurvplots(ggsurv.t6.a_copd, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_copd
+```
+
+### Dementia
+```{r}
+survfit.t6.a_dementia<-survfit(Surv(time, status) ~ a_dementia, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_dementia<- list(
+  ggsurvplot(survfit.t6.a_dementia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_dementia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_dementia <-arrange_ggsurvplots(ggsurv.t6.a_dementia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_dementia
+```
+
+### Heart disease
+```{r}
+survfit.t6.a_heart_disease<-survfit(Surv(time, status) ~ a_heart_disease, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_heart_disease<- list(
+  ggsurvplot(survfit.t6.a_heart_disease, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_heart_disease, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_heart_disease <-arrange_ggsurvplots(ggsurv.t6.a_heart_disease, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_heart_disease
+
+```
+
+### Hyperlipidemia
+```{r}
+survfit.t6.a_hyperlipidemia<-survfit(Surv(time, status) ~ a_hyperlipidemia, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_hyperlipidemia<- list(
+  ggsurvplot(survfit.t6.a_hyperlipidemia, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_hyperlipidemia, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_hyperlipidemia <-arrange_ggsurvplots(ggsurv.t6.a_hyperlipidemia, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_hyperlipidemia
+```
+
+
+### Hypertension
+```{r}
+survfit.t6.a_hypertension<-survfit(Surv(time, status) ~ a_hypertension, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_hypertension<- list(
+  ggsurvplot(survfit.t6.a_hypertension, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_hypertension, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_hypertension <-arrange_ggsurvplots(ggsurv.t6.a_hypertension, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_hypertension
+```
+
+### Obesity
+```{r}
+survfit.t6.a_obesity<-survfit(Surv(time, status) ~ a_obesity, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_obesity<- list(
+  ggsurvplot(survfit.t6.a_obesity, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_obesity, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_obesity <-arrange_ggsurvplots(ggsurv.t6.a_obesity, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_obesity
+```
+
+### Type 2 DM
+```{r}
+survfit.t6.a_t2_diabetes<-survfit(Surv(time, status) ~ a_t2_diabetes, 
+                 data = r.hospitalised.death)
+ggsurv.t6.a_t2_diabetes<- list(
+  ggsurvplot(survfit.t6.a_t2_diabetes, fun = "event", conf.int =TRUE),
+  ggsurvplot(survfit.t6.a_t2_diabetes, fun = "cloglog", conf.int =TRUE))
+ggsurv.t6.a_t2_diabetes <-arrange_ggsurvplots(ggsurv.t6.a_t2_diabetes, print = FALSE, ncol = 1, nrow = 2)
+ggsurv.t6.a_t2_diabetes
+```
