@@ -1,0 +1,950 @@
+---
+title: 'Modelling age'
+output:
+  html_document:
+    code_folding: hide
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r options, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, warning = FALSE, message = FALSE, comment = FALSE,
+  cache.lazy = FALSE
+)
+options(scipen = 999)
+options(knitr.kable.NA = "")
+```
+
+```{r packages, include=FALSE}
+# packages -----
+library(kableExtra)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(rms)
+library(stargazer)
+library(ggstance)
+library(stringr)
+library(knitr)
+```
+
+```{r data, include=FALSE}
+setwd("M:/Elena - R/Multi-state  cancer")
+load("1 data prep/working.data.Rda")
+```
+
+```{r functions}
+## Functions
+
+# For printing numbers
+nice.num <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 0, digits = 0, scientific = FALSE)
+}
+nice.num2 <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 2, digits = 2, scientific = FALSE)
+}
+
+# Models
+get.models <- function(r.data, name) {
+  # will add models to list-----
+  models <- list()
+
+
+  ## overall models ------
+  # data
+  working.data <- r.data
+  dd <<- datadist(working.data)
+  options(datadist = "dd")
+
+
+  # minimally adjusted -age, gender, cancer
+  models[[paste0("m.", name, ".overall.linear", "age.min.adjusted")]] <- cph(Surv(time, status) ~ age +
+    gender + cancer,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.quadratic", "age.min.adjusted")]] <- cph(Surv(time, status) ~
+  pol(age, 2) +
+    gender + cancer,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs3", "age.min.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 3) +
+    gender + cancer,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs4", "age.min.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 4) +
+    gender + cancer,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs5", "age.min.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 5) + gender + cancer,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  ###########
+  # medium adjustment - `smoke and medea
+  models[[paste0("m.", name, ".overall.linear", ".age.med.adjusted")]] <- cph(Surv(time, status) ~
+  age +
+    cancer + gender + medea + smoke.all_time,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+  models[[paste0("m.", name, ".overall.quadratic", ".age.med.adjusted")]] <- cph(Surv(time, status) ~
+  pol(age, 2) +
+    cancer + gender + medea + smoke.all_time,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs3", ".age.med.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 3) +
+    cancer + gender + medea + smoke.all_time,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs4", ".age.med.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 4) +
+    cancer + gender + medea + smoke.all_time,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs5", ".age.med.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 5) +
+    cancer + gender + medea + smoke.all_time,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  # fully adjusted - + comorbidities
+  models[[paste0("m.", name, ".overall.linear", ".age.fully.adjusted")]] <- cph(Surv(time, status) ~
+  age +
+    cancer + gender + medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd +
+    a_dementia + a_heart_disease + a_hyperlipidemia +
+    a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.quadratic", ".age.fully.adjusted")]] <- cph(Surv(time, status) ~
+  pol(age, 2) +
+    cancer + gender + medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd +
+    a_dementia + a_heart_disease + a_hyperlipidemia +
+    a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs3", ".age.fully.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 3) +
+    cancer + gender + medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd +
+    a_dementia + a_heart_disease + a_hyperlipidemia +
+    a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs4", ".age.fully.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 4) +
+    cancer + gender + medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd +
+    a_dementia + a_heart_disease + a_hyperlipidemia +
+    a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+  models[[paste0("m.", name, ".overall.rcs5", ".age.fully.adjusted")]] <- cph(Surv(time, status) ~
+  rcs(age, 5) +
+    cancer + gender + medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd +
+    a_dementia + a_heart_disease + a_hyperlipidemia +
+    a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = working.data, iter.max = 200
+  )
+
+
+  ## output ----
+  models
+}
+
+
+# To get relative hazards for each model in list
+# also add in AIC and BIC
+get.r.hazard <- function(models, # list of models
+                         age.1, # reference age
+                         age.2) { # comparison ages
+
+
+  output <- lapply(models, function(x) {
+    model <- x
+    output <- NULL
+    for (i in 1:length(age.2)) {
+      working.summary <- head(as.data.frame(summary({{ model }},
+        age = c({{ age.1 }}, {{ age.2[i] }}), antilog = FALSE
+      )), 1) # 1st- age
+      working.summary <- working.summary %>%
+        select(Effect, `Lower 0.95`, `Upper 0.95`) %>%
+        mutate(
+          hr = exp(Effect),
+          hr.low = exp(`Lower 0.95`),
+          hr.high = exp(`Upper 0.95`)
+        ) %>%
+        mutate(
+          ref.age = age.1,
+          rel.age = age.2[i]
+        ) %>%
+        select(hr, hr.low, hr.high, ref.age, rel.age)
+      # browser()
+      working.summary$aic <- AIC({{ model }})
+      working.summary$bic <- BIC({{ model }})
+
+      output <- rbind(output, working.summary)
+    }
+
+    output
+  })
+  # to dataframe
+  output <- bind_rows(output, .id = "model")
+  output
+}
+```
+
+```{r, cache=TRUE}
+# get models -----
+models.healthy.diagnosis <- get.models(
+  r.data = r.healthy.diagnosis,
+  name = "healthy.diagnosis"
+)
+
+models.healthy.hospitalised <- get.models(
+  r.data = r.healthy.hospitalised,
+  name = "healthy.hospitalised"
+)
+
+models.healthy.death <- get.models(
+  r.data = r.healthy.death,
+  name = "healthy.death"
+)
+
+models.diagnosis.hospitalised <- get.models(
+  r.data = r.diagnosis.hospitalised,
+  name = "diagnosis.hospitalised"
+)
+
+models.diagnosis.death <- get.models(
+  r.data = r.diagnosis.death,
+  name = "diagnosis.death"
+)
+
+models.hospitalised.death <- get.models(
+  r.data = r.hospitalised.death,
+  name = "hospitalised.death"
+)
+```
+
+# Transition: From general population to diagnosed with COVID-19 - 
+
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.healthy.diagnosis,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - selected model: all 5 splines
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+
+
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From general population to diagnosed with COVID-19" = 7)
+  )
+```
+
+# Transition: From healthy to hospitalised 
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.healthy.hospitalised,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - - selected modell: all quadratic
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+
+
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From general population to hospitalised with COVID-19" = 7)
+  )
+```
+
+
+
+# Transition: From Diagnosed to Hospitalised 
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.diagnosis.hospitalised,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - selected model: all 5 splines 
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+
+
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From diagnosed with COVID-19 to hospitalised with COVID-19" = 7)
+  )
+```
+
+# Transition: From diagnosed to death
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.diagnosis.death,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - selected model all quadratic
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From diagnosed with COVID-19 to death" = 7)
+  )
+```
+
+
+# Transition: From hospitalised to death 
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.hospitalised.death,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - selected model:Min adjusted, linear / others: 3 splines
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From hospitalised with COVID-19 to death" = 7)
+  )
+```
+
+# Transition: From healthy to death 
+
+```{r}
+# models and relative hazards from models -----
+r.hazard <- get.r.hazard(
+  model = models.healthy.death,
+  age.1 = 65,
+  age.2 = seq(0, 100, 1)
+)
+```
+
+## Comparison of alternative models
+### Model fit - selected model: all 5 splines
+
+```{r}
+fit <- rbind(
+  # overall - age only
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.min.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.min.adjusted"),
+
+  # overall - mid ajusted
+
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, ".age.med.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.age.med.adjusted"),
+
+  # overall - fully.adjusted
+  r.hazard %>%
+    filter(str_detect(model, ".overall")) %>%
+    filter(str_detect(model, "age.fully.adjusted")) %>%
+    select(model, aic, bic) %>%
+    distinct() %>%
+    mutate(bic = nice.num(bic)) %>%
+    mutate(aic = nice.num(aic)) %>%
+    mutate(type = str_extract(model, paste(c("linear", "quadratic", "rcs3", "rcs4", "rcs5"), collapse = "|"))) %>%
+    select(type, aic, bic) %>%
+    mutate(name = "overall.fully.adjusted")
+)
+
+fit <- fit %>%
+  pivot_wider(
+    names_from = name,
+    values_from = c(aic, bic)
+  )
+```
+
+```{r}
+
+
+fit <- fit %>%
+  select(
+    type,
+    aic_overall.age.min.adjusted, bic_overall.age.min.adjusted,
+    aic_overall.age.med.adjusted, bic_overall.age.med.adjusted,
+    aic_overall.fully.adjusted, bic_overall.fully.adjusted
+  )
+
+fit <- fit %>%
+  mutate_at(2:ncol(fit), funs(as.numeric(str_replace_all(., ",", ""))))
+
+for (i in 2:ncol(fit)) {
+  val.min <- min(fit[, i])
+  fit <- fit %>% mutate_at(i, funs(ifelse(. == val.min, cell_spec(., background = "orange"), .)))
+}
+fit <- fit %>% mutate_at(2:ncol(fit), funs(nice.num(.)))
+
+
+kable(
+  escape = F, fit %>%
+    mutate(type = ifelse(type == "rcs3",
+      "restricted cubic spline (3 knots)",
+      ifelse(type == "rcs4",
+        "restricted cubic spline (4 knots)",
+        ifelse(type == "rcs5",
+          "restricted cubic spline (5 knots)",
+          type
+        )
+      )
+    )),
+  col.names = c(
+    "Type",
+    "AIC", "BIC",
+    "AIC", "BIC",
+    "AIC", "BIC"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c("",
+    "Overall - min adjusted" = 2,
+    "Overall - med adjusted" = 2,
+    "Overall - fully adjusted" = 2
+  )) %>%
+  add_header_above(
+    c("Fit from alternative appoaches to modelling age" = 7)
+  ) %>%
+  add_header_above(
+    c("From general population to death" = 7)
+  )
+```
