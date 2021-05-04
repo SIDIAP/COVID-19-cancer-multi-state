@@ -4,10 +4,9 @@ library(dplyr)
 library(ggplot2)
 library(rms)
 
-setwd("M:/Elena - R/Multi-state  cancer/")
 
 # data -----
-load("M:/Elena - R/Multi-state  cancer/1 data prep/working.data.Rda")
+load("1 data prep/working.data.Rda")
 
 
 e <- eapply(.GlobalEnv, function(x) {
