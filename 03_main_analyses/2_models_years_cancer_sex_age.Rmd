@@ -1,0 +1,1585 @@
+---
+title: 'Modelling cancer, by years since the cancer diagnosis and stratified by sex and age'
+output:
+  html_document:
+    code_folding: hide
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+highlight: tango
+theme: united
+toc: yes
+toc_depth: 4
+toc_float: yes
+editor_options:
+  chunk_output_type: console
+---
+  
+```{r options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, comment = FALSE)
+options(scipen = 999)
+```
+
+```{r packages, include=FALSE}
+# packages -----
+# install.packages("seplyr")
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+library(rms)
+library(stargazer)
+library(knitr)
+library(stringr)
+library(tidyr)
+library(seplyr)
+library(forcats)
+library(cowplot)
+library(Cairo)
+```
+
+
+```{r data, include=FALSE}
+load("M:/Elena - R/Multi-state  cancer/1 data prep/working.data.Rda")
+
+# function for how to write numbers
+nice.num <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 0, digits = 0, scientific = FALSE)
+}
+nice.num2 <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 2, digits = 2, scientific = FALSE)
+}
+
+#  font for all plots
+windowsFonts(A = windowsFont("Times New Roman"))
+```
+
+
+```{r}
+dd <<- datadist(r); options(datadist = "dd")
+
+# function for models - only fully adjusted models
+get.models <- function(transition.data, # data for transition of interest
+                       transition.name) {
+
+  # models<-list()
+  summary.models <- NULL
+
+  ###### BOTH SEXES & AGES  ----------------------------------------
+  ## All cancers
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data,
+    iter.max = 200
+    )
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data,
+    iter.max = 200
+    )
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data,
+    iter.max = 200
+    )
+  }
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "Overall"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed <1year
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "< 1 year"),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+     pol(age, 2) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "< 1 year"),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 3) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "< 1 year"),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "< 1 year"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed 1-5 years ago
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "1-5 years"),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+     pol(age, 2) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "1-5 years"),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == "1-5 years"),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "1-5 years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancer diagnosed >5y ago
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 5) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == ">5years"),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      pol(age, 2) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == ">5years"),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 3) + gender +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(cancer == 0 | c_status == ">5years"),
+    iter.max = 200
+    )
+  }
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- ">5years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  summary.models
+
+
+  ###### SEX STRATIFICATION ----------------------------------------
+  ## FEMALES
+  ## All cancers
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Female"),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Female"),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Female"),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Female"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "Overall"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed <1 year ago
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+  }
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Female"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "< 1 year"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed 1-5 years ago
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+    
+  }
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Female"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "1-5 years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosed more than 5 years ago
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Female" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Female"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- ">5years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  summary.models
+
+
+  ###### SEX STRATIFICATION ----------------------------------------
+  ## MALES
+  ## All cancers
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer  +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Male"),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Male"),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>% filter(gender == "Male"),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Male"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "Overall"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed <1year
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "< 1 year")),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Male"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "< 1 year"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ##  Only cancers diagnosed 1-5 years ago
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+       pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == "1-5 years")),
+    iter.max = 200
+    )
+  }
+  
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Male"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- "1-5 years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosed >5y ago
+
+  if (transition.name %in%
+    c(
+      "From general population to diagnosed with COVID-19",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From general population to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 5) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+    
+  } else if (transition.name %in%
+    c(
+      "From general population to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death"
+    )) {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      pol(age, 2) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+    
+  } else {
+    m.working <- cph(Surv(time, status) ~ cancer +
+      rcs(age, 3) +
+      medea + smoke.all_time +
+      a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+      a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+    surv = TRUE, x = TRUE, y = TRUE,
+    data = transition.data %>%
+      filter(gender == "Male" & (cancer == 0 | c_status == ">5years")),
+    iter.max = 200
+    )
+  }
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Male"
+  working.summary$age_cat <- "Overall"
+  working.summary$c_status <- ">5years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ###### AGE STRATIFICATION ----------------------------------------
+  ## < 70 YEARS
+  # All cancers
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>% filter(age < 70),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "<70 years"
+  working.summary$c_status <- "Overall"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosed <1 year ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age < 70 & (cancer == 0 | c_status == "< 1 year")),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "<70 years"
+  working.summary$c_status <- "< 1 year"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+
+  ## Only cancers diagnosed 1-5 years ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age < 70 & (cancer == 0 | c_status == "1-5 years")),
+  iter.max = 200
+  )
+
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "<70 years"
+  working.summary$c_status <- "1-5 years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosed >5 years ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age < 70 & (cancer == 0 | c_status == ">5years")),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- "<70 years"
+  working.summary$c_status <- ">5years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+
+  ###### AGE STRATIFICATION ----------------------------------------
+  ## > 70 YEARS
+  # All cancers
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>% filter(age >= 70),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- ">=70 years"
+  working.summary$c_status <- "Overall"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosed <1 year ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age >= 70 & (cancer == 0 | c_status == "< 1 year")),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- ">=70 years"
+  working.summary$c_status <- "< 1 year"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## Only cancers diagnosedc 1-5 years ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age >= 70 & (cancer == 0 | c_status == "1-5 years")),
+  iter.max = 200
+  )
+
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- ">=70 years"
+  working.summary$c_status <- "1-5 years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  ## only cancers diagnosed >5 years ago
+
+  m.working <- cph(Surv(time, status) ~ cancer +
+    gender + age +
+    medea + smoke.all_time +
+    a_autoimmune_condition + a_chronic_kidney_disease + a_copd + a_dementia +
+    a_heart_disease + a_hyperlipidemia + a_hypertension + a_t2_diabetes + a_obesity,
+  surv = TRUE, x = TRUE, y = TRUE,
+  data = transition.data %>%
+    filter(age >= 70 & (cancer == 0 | c_status == ">5years")),
+  iter.max = 200
+  )
+
+  working.summary <- as.data.frame(summary(m.working, antilog = FALSE))
+  working.summary$var <- row.names(working.summary)
+  working.summary$gender <- "Overall"
+  working.summary$age_cat <- ">=70 years"
+  working.summary$c_status <- ">5years"
+  working.summary$model <- "Fully adjusted"
+  working.summary$transition.name <- transition.name
+  working.summary <- working.summary %>%
+    mutate(
+      hr = exp(Effect),
+      hr.low = exp(`Lower 0.95`),
+      hr.high = exp(`Upper 0.95`)
+    ) %>%
+    select(
+      transition.name, var, model, gender, age_cat,
+      c_status, hr, hr.low, hr.high
+    )
+  # output
+  summary.models <- rbind(
+    summary.models,
+    working.summary
+  )
+
+  summary.models
+}
+```
+
+
+```{r}
+# Gathering results by transition
+summary.m.healthy.diagnosis <- get.models(
+  transition.data = r.healthy.diagnosis,
+  transition.name = "From general population to diagnosed with COVID-19"
+)
+
+summary.m.healthy.hospitalised <- get.models(
+  transition.data = r.healthy.hospitalised,
+  transition.name = "From general population to hospitalised with COVID-19"
+)
+
+summary.m.healthy.death <- get.models(
+  transition.data = r.healthy.death,
+  transition.name = "From general population to death"
+)
+
+summary.m.diagnosis.hospitalised <- get.models(
+  transition.data = r.diagnosis.hospitalised,
+  transition.name = "From diagnosed with COVID-19 to hospitalised with COVID-19"
+)
+
+summary.m.diagnosis.death <- get.models(
+  transition.data = r.diagnosis.death,
+  transition.name = "From diagnosed with COVID-19 to death"
+)
+
+summary.m.hospitalised.death <- get.models(
+  transition.data = r.hospitalised.death,
+  transition.name = "From hospitalised with COVID-19 to death"
+)
+```
+
+
+# Summary of models
+```{r}
+estimates <- rbind(
+  summary.m.healthy.diagnosis,
+  summary.m.healthy.hospitalised,
+  summary.m.diagnosis.hospitalised,
+  summary.m.diagnosis.death,
+  summary.m.hospitalised.death,
+  summary.m.healthy.death
+)
+
+# save estimates
+# save(estimates, file = "M:/Elena - R/Multi-state  cancer/results/1.estimates_years_gender.Rda")
+# load("M:/Elena - R/Multi-state  cancer/results/1.estimates_years_gender.Rda")
+
+# just the estimated effect of cancers
+estimates <- estimates %>%
+  filter(var == "cancer")
+
+summary.table <- estimates %>%
+  mutate(est = paste0(
+    nice.num2(hr), " (",
+    nice.num2(hr.low), " to ",
+    nice.num2(hr.high), ")"
+  )) %>%
+  mutate(group = paste0(model, "- ", c_status)) %>%
+  select(transition.name, group, gender, age_cat, est)
+
+summary.table <- summary.table %>%
+  pivot_wider(
+    names_from = group,
+    values_from = est
+  )
+
+# save estimates
+# write.csv2(summary.table, "M:/Elena - R/Multi-state  cancer/results/1.HR_years_gender.csv", row.names = TRUE)
+
+summary.table <- summary.table %>%
+  mutate(group = ifelse(age_cat == ">=70 years", "\u226570 years",
+    ifelse(age_cat == "<70 years", "<70 years",
+      ifelse(gender == "Male", "Male",
+        ifelse(gender == "Female", "Female",
+          "All"
+        )
+      )
+    )
+  )) %>%
+  select(-gender, -age_cat) %>%
+  relocate(group, .after = transition.name)
+```
+
+
+```{r}
+# see results
+kable(summary.table,
+  col.names = c(
+    "Transition", "Variable",
+    "Overall", "Less than 1 year",
+    "1-5years", "More than 5 years"
+  )
+) %>%
+  add_header_above(c("", "", "", "Years since the diagnosis of cancer" = 3)) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  collapse_rows(columns = 1)
+```
+
+#Plotting HR by years since cancer diagnosis and sex/age
+```{r}
+plot.data <- estimates %>%
+  mutate(
+    transition.name =
+      ifelse(transition.name ==
+        "From general population to diagnosed with COVID-19",
+      "From general population\nto diagnosed\nwith COVID-19",
+      ifelse(transition.name ==
+        "From general population to hospitalised with COVID-19",
+      "From general population\nto hospitalised\nwith COVID-19",
+      ifelse(transition.name ==
+        "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From diagnosed with\nCOVID-19 to hospitalised\nwith COVID-19",
+      ifelse(transition.name ==
+        "From diagnosed with COVID-19 to death",
+      "From diagnosed with\nCOVID-19 to\ndeath",
+      ifelse(transition.name ==
+        "From hospitalised with COVID-19 to death",
+      "From hospitalised\nwith COVID-19\nto death",
+      ifelse(transition.name ==
+        "From general population to death",
+      "From general population\nto death",
+      NA
+      )
+      )
+      )
+      )
+      )
+      )
+  ) %>%
+  mutate(transition.name = factor(transition.name,
+    levels = c(
+      "From general population\nto diagnosed\nwith COVID-19",
+      "From general population\nto hospitalised\nwith COVID-19",
+      "From diagnosed with\nCOVID-19 to hospitalised\nwith COVID-19",
+      "From diagnosed with\nCOVID-19 to\ndeath",
+      "From hospitalised\nwith COVID-19\nto death",
+      "From general population\nto death"
+    )
+  ))
+
+plot.data <- plot.data %>%
+  mutate(group = ifelse(age_cat == ">=70 years", "\u226570 years",
+    ifelse(age_cat == "<70 years", "<70 years",
+      ifelse(gender == "Male", "Male",
+        ifelse(gender == "Female", "Female",
+          "All"
+        )
+      )
+    )
+  )) %>%
+  mutate(group = factor(group,
+    levels = c(
+      "\u226570 years",
+      "<70 years",
+      "Male",
+      "Female",
+      "All"
+    )
+  )) %>%
+  mutate(c_status = ifelse(c_status == "< 1 year", "<1 year",
+    ifelse(c_status == ">5years", "\u22655 years",
+      c_status
+    )
+  )) %>%
+  mutate(c_status = factor(c_status,
+    levels = c("Overall", "\u22655 years", "1-5 years", "<1 year")
+  )) %>%
+  mutate(gender = ifelse(gender == "Overall", "Both sexes", gender)) %>%
+  mutate(gender = factor(gender,
+    levels = c(
+      "Male",
+      "Female",
+      "Both sexes"
+    )
+  )) %>%
+  mutate(age_cat = ifelse(age_cat == "<70 years", "<70 years",
+    ifelse(age_cat == ">=70 years", "\u226570 years", "All ages")
+  )) %>%
+  mutate(age_cat = factor(age_cat, levels = c("\u226570 years", "<70 years", "All ages")))
+```
+
+## Risks of COVID-19 outcomes in patients with cancer, by years since cancer diagnosis
+```{r}
+
+hrs.all.years <- plot.data %>%
+  filter(gender == "Both sexes" & age_cat == "All ages") %>%
+  mutate(c_status = fct_rev(c_status)) %>%
+  filter(transition.name != "From general population\nto death") %>%
+  ggplot(aes(
+    x = hr,
+    y = c_status,
+    xmin = hr.low,
+    xmax = hr.high,
+    color = c_status
+  )) +
+  scale_x_log10(
+    breaks = c(0.5, 0.75, 1, 2, 4),
+    labels = c("0.5", "", "1", "2", "4"),
+    limits = c(0.5, 4)
+  ) +
+  facet_grid(transition.name ~ .,
+    drop = TRUE,
+    switch = "y"
+  ) +
+  geom_point(size = 3, position = position_dodge(width = 1), shape = 20) +
+  geom_errorbar(width = 0, size = 1, position = position_dodge(width = 1)) +
+  scale_colour_manual(values = c("#820719", "#7A40B5", "#33703A", "#2660A4")) +
+  geom_vline(
+    xintercept = 1,
+    colour = "grey50",
+    linetype = "solid"
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 14),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title = element_text(size = 14),
+    strip.text.x = element_text(size = 12, face = "bold"),
+    strip.text.y.left = element_text(size = 14, angle = 0, face = "bold"),
+    strip.background = element_rect(fill = "#f7f7f7")
+  ) +
+  xlab("aHR (with 95% CI)") +
+  ylab("") +
+  guides(
+    shape = guide_legend(reverse = T, order = 2),
+    colour = guide_legend(reverse = T, order = 1, ncol = 2)
+  )
+
+
+data_table <- plot.data %>%
+  filter(gender == "Both sexes" & age_cat == "All ages") %>%
+  mutate(c_status = fct_rev(c_status)) %>%
+  filter(transition.name != "From general population\nto death") %>%
+  mutate(est = paste0(
+    nice.num2(hr), " (",
+    nice.num2(hr.low), " to ",
+    nice.num2(hr.high), ")"
+  )) %>%
+  ggplot(aes(x = hr, y = c_status)) +
+  facet_grid(transition.name ~ .,
+    drop = TRUE, switch = "y"
+  ) +
+  geom_text(aes(x = 0, y = c_status, label = est),
+    position = position_dodge(width = 1),
+    family = "A",
+    size = 5
+  ) +
+  theme(
+    text = element_text(family = "A"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text = element_blank(),
+    panel.background = element_blank(),
+    strip.background = element_blank(),
+    strip.text.y.left = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 13, face = "bold")
+  ) +
+  labs(title = " aHR (95% CI)") +
+  xlab("")
+
+plot <- plot_grid(hrs.all.years, data_table, align = "h", axis = "bt", rel_widths = c(1, 0.35))
+
+plot
+
+
+ # ggsave("M:/Elena - R/Multi-state  cancer/results/gg.hrs.overall.years_cov.png", plot,  dpi = 400,
+ #  width = 8, height = 9)
+```
+
+
+## Risks of transitions by years since cancer diagnosis, stratified by sex and age
+```{r, fig.width = 12}
+
+# by gender and age
+hrs.all.years.gender <- plot.data %>%
+  filter(transition.name != "From general population\nto death") %>%
+  filter(group != "All") %>%
+  ggplot(aes(
+    x = hr,
+    y = group,
+    xmin = hr.low,
+    xmax = hr.high,
+    shape = group,
+    color = group,
+    fill = group
+  )) +
+  scale_x_log10() +
+  facet_grid(c_status ~ transition.name,
+    drop = TRUE,
+    scales = "free_y",
+    space = "free_y",
+    switch = "y"
+  ) +
+  geom_point(size = 2, position = position_dodge(width = 1)) +
+  geom_errorbar(width = 0, size = 1, position = position_dodge(width = 1)) +
+  scale_shape_manual(
+    name = "Legend",
+    values = c(21, 22, 24, 25),
+    guide = guide_legend(reverse = TRUE)
+  ) +
+  scale_colour_manual(
+    name = "Legend",
+    values = c("#8BAFE5", "#1E4785", "#699C27", "#CC1B26"),
+    guide = guide_legend(reverse = TRUE)
+  ) +
+  scale_fill_manual(
+    name = "Legend",
+    values = c("#8BAFE5", "#1E4785", "#699C27", "#CC1B26"),
+    guide = guide_legend(reverse = TRUE)
+  ) +
+  geom_vline(
+    xintercept = 1,
+    colour = "grey50",
+    linetype = "solid"
+  ) +
+  geom_hline(yintercept = c(2.5), linetype = "dashed", color = "grey25") +
+  scale_y_discrete(breaks = NULL) +
+  theme_bw() +
+  theme(
+    text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 12),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title = element_text(size = 14),
+    strip.text.x = element_text(size = 12, face = "bold"),
+    strip.text.y.left = element_text(size = 14, face = "bold", angle = 0),
+    strip.background = element_rect(fill = "#f7f7f7")
+  ) +
+  xlab("\n aHR (with 95% CI)") +
+  ylab("")
+
+hrs.all.years.gender
+
+
+# ggsave("M:/Elena - R/Multi-state  cancer/results/gg.hrs.all.years.gender_cov.png", hrs.all.years.gender,
+#  dpi = 400,
+#  width = 15, height = 9)
+```
+
+
+
+```{r}
+# save data for plots with never smokers and MI
+main_models_years <- plot.data %>%
+filter(age_cat == "All ages" & gender == "Both sexes") 
+# save(main_models_years, file = "M:/Elena - R/Multi-state  cancer/results/main_models_toplot.Rda")
+
+# save data for plot combined with cancer type
+gender_age <- plot.data
+# save(gender_age, file = "M:/Elena - R/Multi-state  cancer/results/gender_age_toplot.Rda")
+
+
+```
+
