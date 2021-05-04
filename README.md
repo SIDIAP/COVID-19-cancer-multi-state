@@ -1,3 +1,4 @@
+# Risks of COVID-19 diagnosis, hospitalisation and death in patients with cancer using a Multi-state model
 This study has been performed using data from the Sistema d’Informació pel Desenvolupament de la Investigació a l’Atenció Primària (SIDIAP) database, linked to COVID-19 PCR testing, hospitalisation, and mortality data, which was mapped to the Observational Medical Outcomes Partnership (OMOP) Common Data Model (CDM). There are two distinct parts to the data analysis. First, creating cohort definitions for identifying particular comorbidities of interest. Second, bespoke R analysis code to execute the study.
 
 Cohort definitions
