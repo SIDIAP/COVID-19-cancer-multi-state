@@ -1,0 +1,2216 @@
+---
+title: 'Descriptive statistics for cancer'
+output:
+  html_document:
+    code_folding: hide
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r options, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, warning = FALSE, message = FALSE, comment = FALSE,
+  cache.lazy = FALSE
+)
+options(scipen = 999)
+options(knitr.kable.NA = "")
+```
+
+```{r packages}
+# packages -----
+library(dplyr)
+library(tableone)
+library(kableExtra)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+library(ggridges)
+library(cmprsk)
+```
+
+
+```{r data, include=FALSE}
+# load data
+load("M:/Elena - R/Multi-state  cancer/1 data prep/working.data.Rda")
+
+# modify database for all transitions
+
+e <- eapply(.GlobalEnv, function(x) {
+  x <- x %>%
+    mutate(smoke.all_time = factor(smoke.all_time)) %>%
+    mutate(smoke.all_time = relevel(smoke.all_time, "Never smoker")) %>%
+    droplevels() %>%
+    mutate(cancer2 = ifelse(cancer == 0, "No",
+      ifelse(cancer == 1, "Yes", NA)
+    )) %>%
+    mutate(cancer2 = factor(cancer2, levels = c("No", "Yes")))
+
+  output <- x
+})
+
+nms <- names(e)
+for (n in nms) {
+  assign(n, e[[n]])
+}
+```
+
+```{r functions}
+# function for writing numbers
+nice.num <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 0, digits = 0, scientific = FALSE)
+}
+nice.num2 <- function(x) {
+  prettyNum(x, big.mark = ",", nsmall = 2, digits = 2, scientific = FALSE)
+}
+
+# Font for plots
+windowsFonts(A = windowsFont("Times New Roman"))
+```
+
+# Table 1: Patient characteristics at baseline
+Patient characteristics (overall population, and by cancer status)
+```{r}
+
+# variables for table 1
+vars <- c(
+  "age",
+  "age_gr",
+  "gender",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "c_status",
+  "age_cancer_dx",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+factor.vars <- c(
+  "age_gr",
+  "gender",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "c_status",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+# overall
+summary.characteristics.overall <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = covid.data,
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+
+# by cancer or no cancer
+summary.characteristics.cancer <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = covid.data,
+  strata = c("cancer"),
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+colnames(summary.characteristics.cancer) <- c("cancer-free", "Prior cancer")
+
+# by c_status
+summary.characteristics.c_status <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = covid.data,
+  strata = c("c_status"),
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+
+# drop cancer-free, we already have that
+summary.characteristics.c_status <- summary.characteristics.c_status[, -1] # delete column 1
+
+# by hematological or solid
+summary.characteristics.hem_solid <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = covid.data,
+  strata = c("hem_solid"),
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+
+# drop cancer-free, we already have that
+summary.characteristics.hem_solid <- summary.characteristics.hem_solid[, -1] # delete column 1
+
+summary.characteristics <- cbind(
+  summary.characteristics.overall,
+  summary.characteristics.cancer,
+  summary.characteristics.c_status,
+  summary.characteristics.hem_solid
+)
+
+rm(
+  summary.characteristics.overall,
+  summary.characteristics.c_status,
+  summary.characteristics.hem_solid,
+  summary.characteristics.cancer
+)
+
+for (i in 1:ncol(summary.characteristics)) {
+  # tidy up
+  cur_column <- summary.characteristics[, i]
+  cur_column <- str_extract(cur_column, "[0-9.]+\\b") %>%
+    as.numeric()
+  cur_column <- nice.num(cur_column)
+  # add back in
+  summary.characteristics[, i] <- str_replace(
+    string = summary.characteristics[, i],
+    pattern = "[0-9.]+\\b",
+    replacement = cur_column
+  )
+}
+# names
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), " = 1", "")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "a_", "")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "other_hematological", "Others")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "more_one", "more than one")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "brain_pit", "Brain and snc")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "lung_trachea", "Lung")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "hodgkin", "Hodgkin's lymphoma")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "other_solid", "Others")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "age_cancer_dx", "Age when diagnosed with cancer")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "_", " ")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "_", " ")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "t2", "Type 2")
+
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "smoke.all time", "Smoking status")
+
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "hai", "Hospital-Acquired infection")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "hematological", "hematological malignancy")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "solid", "solid malignancy")
+
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "bone", "bone & cartilage")
+rownames(summary.characteristics) <- str_to_sentence(rownames(summary.characteristics))
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Nhl", "NHL")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Lopc", "LOCP")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Brain and snc", "Brain and SNC")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Copd", "COPD")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Na", "Missing")
+rownames(summary.characteristics) <- str_replace(rownames(summary.characteristics), "Missingtionality.cat", "Nationality")
+```
+
+```{r}
+# save results
+# write.csv2(summary.characteristics,
+#          "M:/Elena - R/Multi-state  cancer/results/descriptive_baseline.csv", row.names=T)
+```
+
+
+```{r}
+kable(summary.characteristics) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  add_header_above(c(
+    " " = 2,
+    "Cancer status" = 2,
+    "Years since cancer diagnosis" = 3,
+    "Solid vs Hematological cancer" = 2
+  ))
+```
+
+# Table 2: Patient characteristics at baseline stratified by missing VS not missing on smoking status or MEDEA deprivation index
+```{r, cache=TRUE}
+vars <- c(
+  "age",
+  "age_gr",
+  "gender",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "c_status",
+  "age_cancer_dx",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+factor.vars <- c(
+  "age_gr",
+  "gender",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "c_status",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+
+summary.characteristics2 <- cbind(
+  print(CreateTableOne(
+    vars = vars,
+    factorVars = factor.vars,
+    includeNA = T,
+    data = rbind(
+      covid.data %>%
+        filter(!(medea == "Missing")) %>%
+        filter(!(smoke.all_time == "Missing")) %>%
+        mutate(tosummary = "First group"),
+      covid.data %>%
+        filter(medea == "Missing" | smoke.all_time == "Missing") %>%
+        mutate(tosummary = "Second group")
+    ),
+    strata = "tosummary",
+    test = F
+  ),
+  showAllLevels = F, smd = TRUE,
+  nonnormal = vars,
+  noSpaces = TRUE,
+  contDigits = 1,
+  printToggle = FALSE
+  )
+)
+
+for (i in 1:ncol(summary.characteristics2)) {
+  # tidy up
+  cur_column <- summary.characteristics2[, i]
+  cur_column <- str_extract(cur_column, "[0-9.]+\\b") %>%
+    as.numeric()
+  cur_column <- format(cur_column, big.mark = ",", decimal.mark = ".")
+  # add back in
+  summary.characteristics2[, i] <- str_replace(
+    string = summary.characteristics2[, i],
+    pattern = "[0-9.]+\\b",
+    replacement = cur_column
+  )
+}
+
+
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), " = 1", "")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "a_", "")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "other_hematological", "Others")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "c_status", "Years since cancer diagnosis")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "more_one", "more than one")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "brain_pit", "Brain and snc")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "lung_trachea", "Lung")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "hodgkin", "Hodgkin's lymphoma")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "other_solid", "Others")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "age_cancer_dx", "Age when diagnosed with cancer")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "_", " ")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "_", " ")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "t2", "Type 2")
+
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "smoke.all time", "Smoking status")
+
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "hai", "Hospital-Acquired infection")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "hematological", "hematological malignancy")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "solid", "solid malignancy")
+
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "bone", "bone & cartilage")
+rownames(summary.characteristics2) <- str_to_sentence(rownames(summary.characteristics2))
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Nhl", "NHL")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Lopc", "LOCP")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Brain and snc", "Brain and SNC")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Copd", "COPD")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Na", "Missing")
+rownames(summary.characteristics2) <- str_replace(rownames(summary.characteristics2), "Missingtionality.cat", "Nationality")
+```
+
+```{r}
+# save results
+# write.csv2(summary.characteristics2,"M:/Elena - R/Multi-state  cancer/results/appendix_missing_smd.csv", row.names=T)
+```
+
+
+```{r}
+kable(summary.characteristics2,
+  col.names = c(
+    "With complete information on covariates",
+    "Without smoking status or MEDEA", "SMD"
+  )
+) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"))
+```
+
+
+#Figures - Baseline characteristics
+
+## Age figures 
+### Ridgeplots
+#### Age distribution by sex and years since cancer diagnosis
+
+```{r}
+plot.data <- covid.data
+age.gender <- ggplot(plot.data, aes(x = age, y = factor(c_status), height = ..density.., fill = gender)) +
+  geom_density_ridges(stat = "density") +
+  facet_grid(. ~ gender) +
+  theme_bw() +
+  xlim(0, 120) +
+  theme(
+    text = element_text(family = "A"),
+    legend.position = "none",
+    panel.grid.major.x = element_line(colour = "grey", linetype = "dashed")
+  ) +
+  labs(x = "Age", y = NULL)
+age.gender
+```
+
+#### Age distribution by sex and cancer type (hematological or solid)
+```{r}
+age.gender.type <- ggplot(plot.data, aes(x = age, y = factor(hem_solid), height = ..density.., fill = gender)) +
+  geom_density_ridges(stat = "density") +
+  facet_grid(. ~ gender) +
+  theme_bw() +
+  xlim(0, 120) +
+  theme(
+    text = element_text(family = "A"),
+    legend.position = "none",
+    panel.grid.major.x = element_line(colour = "grey", linetype = "dashed")
+  ) +
+  labs(x = "Age", y = NULL)
+age.gender.type
+```
+
+### Violin plots
+####  Age and gender by years since cancer diagnosis
+```{r}
+
+
+violin_age_years_gender <- ggplot(
+  data = plot.data,
+  aes(x = age, y = gender, fill = gender)
+) +
+  geom_violin(trim = F) +
+  geom_boxplot(width = 0.1, fill = "white") +
+  coord_flip() +
+  facet_wrap(factor(c_status) ~ ., nrow = 1) +
+  theme_bw() +
+  theme(
+    text = element_text(family = "A"),
+    legend.position = "bottom",
+    panel.grid = element_line(colour = "grey", linetype = "dashed"),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    strip.background.x = element_rect(fill = "#f7f7f7")
+  ) +
+  ylab(NULL) +
+  xlab("Age")
+
+violin_age_years_gender
+
+ggsave("M:/Elena - R/Multi-state  cancer/results/violin_age_years_gender.png",
+  violin_age_years_gender,
+  dpi = 300,
+  width = 15, height = 9
+)
+```
+
+#### Age distribution by sex and cancer type (hematological or solid)
+```{r}
+violin_age_hem_gender <- ggplot(
+  data = plot.data,
+  aes(x = age, y = gender, fill = gender)
+) +
+  geom_violin(trim = F) +
+  geom_boxplot(width = 0.1, fill = "white") +
+  coord_flip() +
+  facet_wrap(factor(hem_solid) ~ ., nrow = 1) +
+  theme_bw() +
+  theme(    
+    text = element_text(family = "A"),
+    legend.position = "bottom",
+    panel.grid = element_line(colour = "grey", linetype = "dashed"),
+    strip.text.x = element_text(size = 10, face = "bold"),
+    strip.background.x = element_rect(fill = "#f7f7f7")
+  ) +
+  ylab(NULL) +
+  xlab("Age")
+
+violin_age_hem_gender
+
+ggsave("M:/Elena - R/Multi-state  cancer/results/violin_age_hem_gender.png",
+  violin_age_hem_gender,
+  dpi = 300,
+  width = 15, height = 9
+)
+```
+
+### Histograms
+#### By years since cancer diagnosis
+
+```{r}
+
+# Mirrored
+plot.data.male <- plot.data %>%
+  filter(gender == "Male")
+plot.data.female <- plot.data %>%
+  filter(gender == "Female")
+dat_text <- data.frame(
+  label = c("Female", "Male"),
+  x = c(95, 95),
+  y = c(-0.020, 0.025)
+)
+histogram3 <- ggplot() +
+  geom_histogram(
+    data = plot.data.male,
+    aes(x = age, y = ..density..),
+    colour = "black",
+    binwidth = 4, boundary = 0,
+    fill = "#F21A00"
+  ) +
+  geom_histogram(
+    data = plot.data.female,
+    aes(x = age, y = -..density..),
+    colour = "black",
+    binwidth = 4, boundary = 0,
+    fill = "#3B9AB2"
+  ) +
+  coord_flip() +
+  facet_wrap(factor(c_status) ~ ., nrow = 2) +
+  theme_bw() +
+  scale_y_continuous(breaks = c(-0.05, -0.025, 0, 0.025, 0.05), labels = c("5%", "2.5%", "0%", "2.5%", "5%")) +
+  xlim(0, 104) +
+  geom_label(
+    data = dat_text,
+    mapping = aes(
+      x = x,
+      y = y, label = label
+    ),
+    size = 5
+  ) +
+  theme(
+    text = element_text(family = "A"),
+    legend.title = element_blank(),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    strip.background = element_rect(fill = "#f7f7f7"),
+    legend.text = element_text(size = 14),
+    legend.position = "top"
+  ) +
+  ylab("Density") +
+  xlab("Age")
+
+histogram3
+```
+
+#### By cancer type
+```{r}
+
+# Mirrored
+
+histogram4 <- ggplot() +
+  geom_histogram(
+    data = plot.data.male,
+    aes(x = age, y = ..density..),
+    colour = "black",
+    binwidth = 4, boundary = 0,
+    fill = "#F21A00"
+  ) +
+  geom_histogram(
+    data = plot.data.female,
+    aes(x = age, y = -..density..),
+    colour = "black",
+    binwidth = 4, boundary = 0,
+    fill = "#3B9AB2"
+  ) +
+  coord_flip() +
+  facet_wrap(factor(hem_solid) ~ ., nrow = 1) +
+  theme_bw() +
+  scale_y_continuous(breaks = c(-0.05, -0.025, 0, 0.025, 0.05), labels = c("5%", "2.5%", "0%", "2.5%", "5%")) +
+  xlim(0, 104) +
+  geom_label(
+    data = dat_text,
+    mapping = aes(
+      x = x,
+      y = y, label = label
+    ),
+    size = 5
+  ) +
+  theme(
+    text = element_text(family = "A"),
+    legend.title = element_blank(),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14, face = "bold"),
+    strip.text = element_text(size = 14, face = "bold"),
+    strip.background = element_rect(fill = "#f7f7f7"),
+    legend.text = element_text(size = 14),
+    legend.position = "top"
+  ) +
+  ylab("Density") +
+  xlab("Age")
+
+histogram4
+```
+
+
+##  Conditions by years since cancer diagnosis
+### Polarplot by gender
+```{r, width="250%"}
+a <- covid.data %>%
+  mutate(c_status = ifelse(c_status == "< 1 year", "<1 year",
+    ifelse(c_status == ">5years", "\u22655 years",
+      ifelse(c_status == "cancer-free", "Cancer-free",
+        ifelse(c_status == "1-5 years", "1-5 years",
+          c_status
+        )
+      )
+    )
+  )) %>%
+  mutate(c_status = factor(c_status,
+    levels = c(
+      "Cancer-free",
+      "\u22655 years",
+      "1-5 years",
+      "<1 year"
+    )
+  )) %>%
+  group_by(gender, c_status) %>%
+  add_tally() %>%
+  group_by(gender, c_status, n) %>%
+  summarise(
+    a_autoimmune_condition = sum(a_autoimmune_condition == 1),
+    a_chronic_kidney_disease = sum(a_chronic_kidney_disease == 1),
+    a_copd = sum(a_copd == 1),
+    a_heart_disease = sum(a_heart_disease == 1),
+    a_hyperlipidemia = sum(a_hyperlipidemia == 1),
+    a_hypertension = sum(a_hypertension == 1),
+    a_obesity = sum(a_obesity == 1),
+    a_t2_diabetes = sum(a_t2_diabetes == 1)
+  ) %>%
+  mutate(
+    a_autoimmune_condition = a_autoimmune_condition / n,
+    a_chronic_kidney_disease = a_chronic_kidney_disease / n,
+    a_copd = a_copd / n,
+    a_heart_disease = a_heart_disease / n,
+    a_hyperlipidemia = a_hyperlipidemia / n,
+    a_hypertension = a_hypertension / n,
+    a_obesity = a_obesity / n,
+    a_t2_diabetes = a_t2_diabetes / n
+  ) %>%
+  pivot_longer(
+    cols = starts_with("a_"),
+    names_to = "var",
+    values_to = "prop",
+    values_drop_na = TRUE
+  )
+
+a <- a %>%
+  mutate(
+    var.name =
+      ifelse(
+        var == "a_autoimmune_condition",
+        "Autoimmune condition",
+        ifelse(
+          var == "a_chronic_kidney_disease",
+          "Chronic kidney disease",
+          ifelse(
+            var == "a_copd",
+            "COPD",
+            ifelse(
+              var == "a_dementia",
+              "Dementia",
+              ifelse(
+                var == "a_heart_disease",
+                "Heart disease",
+                ifelse(
+                  var == "a_hyperlipidemia",
+                  "Hyperlipidemia",
+                  ifelse(
+                    var == "a_hypertension",
+                    "Hypertension",
+                    ifelse(
+                      var == "a_obesity",
+                      "Obesity",
+                      ifelse(
+                        var == "a_t2_diabetes",
+                        "Type 2 Diabetes Mellitus", NA
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+  )
+
+
+gg.conditions.gender <- a %>%
+  ggplot() +
+  facet_grid(gender ~ c_status, switch = "y") +
+  geom_bar(aes(var, prop, fill = var.name),
+    width = 1, colour = "grey",
+    stat = "identity", position = position_dodge()
+  ) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7),
+    limits = c(-0.075, 0.7)
+  ) +
+  scale_fill_manual(values = c(
+    "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c",
+    "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a"
+  )) +
+  theme(
+    text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    legend.title = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.text.y.left = element_text(angle = 0),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10)
+  ) +
+  geom_text(
+    x = 3, y = 0.5,
+    size = 4,
+    label = "50%"
+  ) +
+  coord_polar(start = 0)
+
+gg.conditions.gender
+# ggsave("gg.conditions.gender.png",gg.conditions.gender,
+#        dpi=300,
+#        width = 10.5, height = 8)
+```
+
+### Polarplot by age group
+```{r, width="250%", height="250%"}
+a <- covid.data %>%
+  mutate(age_cat = ifelse(age < 60, "18 to 59",
+    ifelse(age < 70, "60 to 69",
+      ifelse(age < 80, "70 to 80", "80 or older")
+    )
+  )) %>%
+  mutate(cancer2 = ifelse(cancer2 == "No", "Without cancer",
+    ifelse(cancer2 == "Yes",
+      "With cancer", NA
+    )
+  )) %>%
+  group_by(age_cat, cancer2) %>%
+  add_tally() %>%
+  group_by(age_cat, cancer2, n) %>%
+  summarise(
+    a_autoimmune_condition = sum(a_autoimmune_condition == 1),
+    a_chronic_kidney_disease = sum(a_chronic_kidney_disease == 1),
+    a_copd = sum(a_copd == 1),
+    a_heart_disease = sum(a_heart_disease == 1),
+    a_hyperlipidemia = sum(a_hyperlipidemia == 1),
+    a_hypertension = sum(a_hypertension == 1),
+    a_obesity = sum(a_obesity == 1),
+    a_t2_diabetes = sum(a_t2_diabetes == 1)
+  ) %>%
+  mutate(
+    a_autoimmune_condition = a_autoimmune_condition / n,
+    a_chronic_kidney_disease = a_chronic_kidney_disease / n,
+    a_copd = a_copd / n,
+    a_heart_disease = a_heart_disease / n,
+    a_hyperlipidemia = a_hyperlipidemia / n,
+    a_hypertension = a_hypertension / n,
+    a_obesity = a_obesity / n,
+    a_t2_diabetes = a_t2_diabetes / n
+  ) %>%
+  pivot_longer(
+    cols = starts_with("a_"),
+    names_to = "var",
+    values_to = "prop",
+    values_drop_na = TRUE
+  )
+
+a <- a %>%
+  mutate(
+    var.name =
+      ifelse(
+        var == "a_autoimmune_condition",
+        "Autoimmune condition",
+        ifelse(
+          var == "a_chronic_kidney_disease",
+          "Chronic kidney disease",
+          ifelse(
+            var == "a_copd",
+            "COPD",
+            ifelse(
+              var == "a_dementia",
+              "Dementia",
+              ifelse(
+                var == "a_heart_disease",
+                "Heart disease",
+                ifelse(
+                  var == "a_hyperlipidemia",
+                  "Hyperlipidemia",
+                  ifelse(
+                    var == "a_hypertension",
+                    "Hypertension",
+                    ifelse(
+                      var == "a_obesity",
+                      "Obesity",
+                      ifelse(
+                        var == "a_t2_diabetes",
+                        "Type 2 Diabetes Mellitus", NA
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+  )
+
+gg.conditions.age <- a %>%
+  ggplot() +
+  facet_grid(cancer2 ~ age_cat, switch = "y") +
+  geom_bar(aes(var, prop, fill = var.name),
+    width = 1, colour = "grey",
+    stat = "identity", position = position_dodge()
+  ) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+    limits = c(-0.075, 0.61)
+  ) +
+  scale_fill_manual(values = c(
+    "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c",
+    "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a"
+  )) +
+  theme(   
+    text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    legend.title = element_blank(),
+    strip.text = element_text(size = 12, face = "bold"),
+    panel.grid.major.y = element_line(color = "#B7C2C7"),
+    panel.grid.major.x = element_line(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.text.y.left = element_text(angle = 0),
+    legend.position = "bottom",
+    legend.text = element_text(size = 12)
+  ) +
+  geom_text(
+    x = 3, y = 0.5,
+    size = 4,
+    label = "50%"
+  ) +
+  coord_polar(start = 0)
+# ggsave("gg.conditions.age.png",gg.conditions.age,
+#        dpi=300,
+#        width = 10.5, height = 16)
+gg.conditions.age
+```
+
+##Polarplot cancer types, by gender
+```{r, width="250%"}
+a <- covid.data %>%
+  mutate(c_status = ifelse(c_status == "< 1 year", "<1 year",
+    ifelse(c_status == ">5years", "\u22655 years",
+      ifelse(c_status == "cancer-free", "Cancer-free",
+        ifelse(c_status == "1-5 years", "1-5 years",
+          c_status
+        )
+      )
+    )
+  )) %>%
+  mutate(c_status = factor(c_status,
+    levels = c(
+      "Cancer-free",
+      "\u22655 years",
+      "1-5 years",
+      "<1 year"
+    )
+  )) %>%
+  filter(c_status != "Cancer-free") %>%
+  group_by(gender, c_status) %>%
+  add_tally() %>%
+  group_by(gender, c_status, n) %>%
+  summarise(
+    breast = sum(breast == 1),
+    prostate = sum(prostate == 1),
+    colorectal = sum(colorectal == 1),
+    bladder = sum(bladder == 1),
+    lung = sum(lung == 1),
+    uterus = sum(uterus == 1),
+    kidney = sum(kidney == 1),
+    melanoma = sum(melanoma == 1),
+    hematological = sum(hematological == 1)
+  ) %>%
+  mutate(
+    breast = breast / n,
+    prostate = prostate / n,
+    colorectal = colorectal / n,
+    bladder = bladder / n,
+    lung = lung / n,
+    uterus = uterus / n,
+    kidney = kidney / n,
+    melanoma = melanoma / n,
+    hematological = hematological / n
+  ) %>%
+  pivot_longer(
+    cols = breast:hematological,
+    names_to = "var",
+    values_to = "prop",
+    values_drop_na = TRUE
+  )
+
+
+
+a <- a %>%
+  mutate(
+    cancer =
+      ifelse(
+        var == "breast",
+        "Breast",
+        ifelse(
+          var == "prostate",
+          "Prostate",
+          ifelse(
+            var == "colorectal",
+            "Colorectal",
+            ifelse(
+              var == "bladder",
+              "Bladder",
+              ifelse(
+                var == "lung",
+                "Lung",
+                ifelse(
+                  var == "uterus",
+                  "Uterus",
+                  ifelse(
+                    var == "kidney",
+                    "Kidney",
+                    ifelse(
+                      var == "melanoma",
+                      "Melanoma",
+                      ifelse(var == "hematological", "Hematological",
+                        NA
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+  )
+
+# colors for cancers
+# bladder  "#FADD20"
+# breast  "#D33675 "
+# colorectal "#2C08AF"
+# hematological
+# kidney "#FD5200"
+# lung "#DDD8C4"
+# melanoma "#1E1F1F"
+# prostate "#63BDE3"
+
+gg.cancers.gender <- a %>%
+  filter(var != "uterus") %>%
+  ggplot() +
+  facet_grid(gender ~ c_status, switch = "y") +
+  geom_bar(aes(var, prop, fill = cancer),
+    width = 1, colour = "grey",
+    stat = "identity", position = position_dodge()
+  ) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = c(0.1, 0.2, 0.3, 0.4, 0.4),
+    limits = c(-0.075, 0.45)
+  ) +
+  scale_fill_manual(values = c(
+    "#FADD20", "#D33675", "#2C08AF",
+    "#C71826", "#FD5200", "#DDD8C4",
+    "#1E1F1F", "#63BDE3"
+  )) +
+  theme(
+     text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    strip.text = element_text(size = 10, face = "bold"),
+    #  panel.grid.major.x = element_blank() ,
+    panel.grid.major.y = element_line(color = "#B7C2C7"),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.text.y.left = element_text(angle = 0),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10)
+  ) +
+  geom_text(
+    x = 3, y = 0.3,
+    size = 4,
+    label = "30%"
+  ) +
+  coord_polar(start = 0)
+
+gg.cancers.gender
+
+ ggsave("gg.cancers.gender.png",gg.cancers.gender, dpi=300, width = 10.5, height = 8)
+```
+
+
+# Table 3: Patient characteristics by state or transition
+Patient characteristics by state (general population) or transition (from general population, diagnosed with COVID-19, and hospitalised with COVID-19)
+```{r, cache=TRUE}
+
+vars <- c(
+  "age",
+  "age_gr",
+  "gender",
+  "c_status",
+  "hem_solid",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "age_cancer_dx",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+factor.vars <- c(
+  "age_gr",
+  "gender",
+  "c_status",
+  "hem_solid",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+
+table1.data <- rbind(
+  # all those in general population
+  r.healthy.diagnosis %>%
+    mutate(group = "General population"),
+  # all those who transition from general population to diagnosed
+  r.healthy.diagnosis %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to diagnosed with COVID-19"),
+  # all those who transition from general population to hospitalised
+  r.healthy.hospitalised %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to hospitalised with COVID-19"),
+  # all those who transition from diagnosed to hospitalised
+  r.diagnosis.hospitalised %>%
+    filter(status == 1) %>%
+    mutate(group = "From diagnosed with COVID-19 to hospitalised with COVID-19"),
+  # all those who transition from hospitalised to death
+  r.hospitalised.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From hospitalised with COVID-19 to death"),
+  # # all those who transition from general population to death
+  r.healthy.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to death"),
+  # all those who transition from diagnosed to death
+  r.diagnosis.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From diagnosed with COVID-19 to death")
+) %>%
+  mutate(group = factor(group,
+    levels = c(
+      "General population",
+      "From general population to diagnosed with COVID-19",
+      "From general population to hospitalised with COVID-19",
+      "From general population to death",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death",
+      "From hospitalised with COVID-19 to death"
+    )
+  )) %>%
+  mutate(gender = factor(gender,
+    levels = c("Male", "Female")
+  ))
+
+
+summary.characteristics3 <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = table1.data %>%
+    filter(!is.na(c_status)),
+  strata = c("group"),
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+# format numbers (eg commas etc)
+# functionality does not seem to be in tableone package
+# so do this manually
+
+for (i in 1:ncol(summary.characteristics3)) {
+  # tidy up
+  cur_column <- summary.characteristics3[, i]
+  cur_column <- str_extract(cur_column, "[0-9.]+\\b") %>%
+    as.numeric()
+  cur_column <- nice.num(cur_column)
+  # add back in
+  summary.characteristics3[, i] <- str_replace(
+    string = summary.characteristics3[, i],
+    pattern = "[0-9.]+\\b",
+    replacement = cur_column
+  )
+}
+# names
+
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), " = 1", "")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "a_", "")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "other_hematological", "Others")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "more_one", "more than one")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "c_status", "Years since cancer diagnosis")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "brain_pit", "Brain and snc")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "lung_trachea", "Lung")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "hodgkin", "Hodgkin's lymphoma")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "other_solid", "Others")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "age_cancer_dx", "Age when diagnosed with cancer")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "_", " ")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "_", " ")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "t2", "Type 2")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "NA", "Missing")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "smoke.all time", "Smoking status")
+
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "hai", "Hospital-Acquired infection")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "hematological", "hematological malignancy")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "solid", "solid malignancy")
+
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "bone", "bone & cartilage")
+rownames(summary.characteristics3) <- str_to_sentence(rownames(summary.characteristics3))
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "Nhl", "NHL")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "Lopc", "LOCP")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "Brain and snc", "Brain and SNC")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "Copd", "COPD")
+rownames(summary.characteristics3) <- str_replace(rownames(summary.characteristics3), "Missingtionality.cat", "Nationality")
+```
+
+```{r}
+kable(summary.characteristics3,
+  col.names = c(
+    "General population",
+    "To diagnosed with COVID-19",
+    "To hospitalised with COVID-19",
+    "To death",
+    "To hospitalised with COVID-19",
+    "To death",
+    "To death"
+  )
+) %>%
+  add_header_above(c(
+    " " = 2,
+    "From general population" = 3,
+    "From diagnosed with COVID-19" = 2,
+    "From hospitalised with COVID-19" = 1
+  )) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"))
+```
+
+
+# Table 4: Patient characteristics by state or transition, only with patients with cancer
+Patient characteristics by state (general population) or transition (from general population, diagnosed with COVID-19, and hospitalised with COVID-19), only with patients with cancer
+```{r}
+
+vars <- c(
+  "age",
+  "age_gr",
+  "gender",
+  "c_status",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "age_cancer_dx",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+factor.vars <- c(
+  "age_gr",
+  "gender",
+  "c_status",
+  "smoke.all_time",
+  "medea",
+  # atlas cohorts
+  "a_autoimmune_condition",
+  "a_chronic_kidney_disease",
+  "a_copd",
+  "a_dementia",
+  "a_heart_disease",
+  "a_hyperlipidemia",
+  "a_hypertension",
+  "a_t2_diabetes",
+  "a_obesity",
+  "a_hai",
+  "hematological",
+  "nhl",
+  "leukemia",
+  "myeloma",
+  "hodgkin",
+  "other_hematological",
+  #  "nhl_others",
+  "solid",
+  "breast",
+  "prostate",
+  "colorectal",
+  "bladder",
+  "lung_trachea",
+  "uterus",
+  "kidney",
+  "melanoma",
+  "thyroid",
+  "lopc",
+  "brain_pit",
+  "stomach",
+  "ovary",
+  "larynx",
+  "liver",
+  "cervix",
+  "pancreas",
+  "esophagus",
+  "gallbladder",
+  "testis",
+  "bone",
+  "unspecified",
+  "more_one",
+  "other_solid"
+)
+
+
+table1.data <- rbind(
+  # all those in general population
+  r.healthy.diagnosis %>%
+    mutate(group = "General population"),
+  # all those who transition from general population to diagnosed
+  r.healthy.diagnosis %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to diagnosed with COVID-19"),
+  # all those who transition from general population to hospitalised
+  r.healthy.hospitalised %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to hospitalised with COVID-19"),
+  # all those who transition from diagnosed to hospitalised
+  r.diagnosis.hospitalised %>%
+    filter(status == 1) %>%
+    mutate(group = "From diagnosed with COVID-19 to hospitalised with COVID-19"),
+  # all those who transition from hospitalised to death
+  r.hospitalised.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From hospitalised with COVID-19 to death"),
+  # # all those who transition from general population to death
+  r.healthy.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From general population to death"),
+  # all those who transition from diagnosed to death
+  r.diagnosis.death %>%
+    filter(status == 1) %>%
+    mutate(group = "From diagnosed with COVID-19 to death")
+) %>%
+  mutate(group = factor(group,
+    levels = c(
+      "General population",
+      "From general population to diagnosed with COVID-19",
+      "From general population to hospitalised with COVID-19",
+      "From general population to death",
+      "From diagnosed with COVID-19 to hospitalised with COVID-19",
+      "From diagnosed with COVID-19 to death",
+      "From hospitalised with COVID-19 to death"
+    )
+  )) %>%
+  mutate(gender = factor(gender,
+    levels = c("Male", "Female")
+  ))
+
+
+summary.characteristics4 <- print(CreateTableOne(
+  vars = vars,
+  factorVars = factor.vars,
+  includeNA = T,
+  data = table1.data %>%
+    filter(cancer == 1),
+  strata = c("group"),
+  test = F
+),
+showAllLevels = F, smd = F,
+nonnormal = vars,
+noSpaces = TRUE,
+contDigits = 1,
+printToggle = FALSE
+)
+# format numbers (eg commas etc)
+# functionality does not seem to be in tableone package
+# so do this manually
+
+for (i in 1:ncol(summary.characteristics4)) {
+  # tidy up
+  cur_column <- summary.characteristics4[, i]
+  cur_column <- str_extract(cur_column, "[0-9.]+\\b") %>%
+    as.numeric()
+  cur_column <- nice.num(cur_column)
+  # add back in
+  summary.characteristics4[, i] <- str_replace(
+    string = summary.characteristics4[, i],
+    pattern = "[0-9.]+\\b",
+    replacement = cur_column
+  )
+}
+# names
+
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), " = 1", "")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "a_", "")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "other_hematological", "Others")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "more_one", "more than one")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "c_status", "Years since cancer diagnosis")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "brain_pit", "Brain and snc")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "lung_trachea", "Lung")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "hodgkin", "Hodgkin's lymphoma")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "other_solid", "Others")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "age_cancer_dx", "Age when diagnosed with cancer")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "_", " ")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "_", " ")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "t2", "Type 2")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "NA", "Missing")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "smoke.all time", "Smoking status")
+
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "hai", "Hospital-Acquired infection")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "hematological", "hematological malignancy")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "solid", "solid malignancy")
+
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "bone", "bone & cartilage")
+rownames(summary.characteristics4) <- str_to_sentence(rownames(summary.characteristics4))
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "Nhl", "NHL")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "Lopc", "LOCP")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "Brain and snc", "Brain and SNC")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "Copd", "COPD")
+rownames(summary.characteristics4) <- str_replace(rownames(summary.characteristics4), "Missingtionality.cat", "Nationality")
+```
+
+
+
+```{r}
+# write.csv2(summary.characteristics3,
+#       "M:/Elena - R/Multi-state  cancer/results/characteristics_transition.csv", row.names=T)
+
+# write.csv2(summary.characteristics4,
+#      "M:/Elena - R/Multi-state  cancer/results/characteristics_transition_only_cancer.csv", row.names=T)
+```
+
+
+
+```{r}
+kable(summary.characteristics4,
+  col.names = c(
+    "General population",
+    "To diagnosed with COVID-19",
+    "To hospitalised with COVID-19",
+    "To death",
+    "To hospitalised with COVID-19",
+    "To death",
+    "To death"
+  )
+) %>%
+  add_header_above(c(
+    " " = 2,
+    "From general population" = 3,
+    "From diagnosed with COVID-19" = 2,
+    "From hospitalised with COVID-19" = 1
+  )) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered"))
+```
+
+
+# Figures by transition
+## Cancer types by transition
+```{r}
+a <- table1.data %>%
+  mutate(c_status = ifelse(c_status == "< 1 year" | c_status == "1-5 years", "<5 years",
+    ifelse(c_status == ">5years", "\u22655 years",
+      ifelse(c_status == "cancer-free", "Cancer-free",
+        c_status
+      )
+    )
+  )) %>%
+  mutate(c_status = factor(c_status,
+    levels = c(
+      "Cancer-free",
+      "\u22655 years",
+      "<5 years"
+    )
+  )) %>%
+  filter(c_status != "Cancer-free") %>%
+  group_by(group, c_status) %>%
+  add_tally() %>%
+  group_by(group, c_status, n) %>%
+  summarise(
+    breast = sum(breast == 1),
+    prostate = sum(prostate == 1),
+    colorectal = sum(colorectal == 1),
+    bladder = sum(bladder == 1),
+    lung = sum(lung == 1),
+    uterus = sum(uterus == 1),
+    kidney = sum(kidney == 1),
+    melanoma = sum(melanoma == 1),
+    hematological = sum(hematological == 1)
+  ) %>%
+  mutate(
+    breast = breast / n,
+    prostate = prostate / n,
+    colorectal = colorectal / n,
+    bladder = bladder / n,
+    lung = lung / n,
+    uterus = uterus / n,
+    kidney = kidney / n,
+    melanoma = melanoma / n,
+    hematological = hematological / n
+  ) %>%
+  pivot_longer(
+    cols = breast:hematological,
+    names_to = "var",
+    values_to = "prop",
+    values_drop_na = TRUE
+  )
+
+
+a <- a %>%
+  mutate(
+    cancer =
+      ifelse(
+        var == "breast",
+        "Breast",
+        ifelse(
+          var == "prostate",
+          "Prostate",
+          ifelse(
+            var == "colorectal",
+            "Colorectal",
+            ifelse(
+              var == "bladder",
+              "Bladder",
+              ifelse(
+                var == "lung",
+                "Lung",
+                ifelse(
+                  var == "uterus",
+                  "Uterus",
+                  ifelse(
+                    var == "kidney",
+                    "Kidney",
+                    ifelse(
+                      var == "melanoma",
+                      "Melanoma",
+                      ifelse(var == "hematological", "Hematological",
+                        NA
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+  )
+
+a$group <- plyr::revalue(a$group, c(
+  "From general population to diagnosed with COVID-19" =
+    "From general\npopulation to\ndiagnosed with\nCOVID-19",
+  "From general population to hospitalised with COVID-19" =
+    "From general\npopulation\nto hospitalised\nwith COVID-19",
+  "From general population to death" =
+    "From general\npopulation\nto death",
+  "From diagnosed with COVID-19 to hospitalised with COVID-19" =
+    "From diagnosed\nwith COVID-19\nto hospitalised\nwith COVID-19",
+  "From diagnosed with COVID-19 to death" =
+    "From diagnosed\nwith COVID-19\nto death",
+  "From hospitalised with COVID-19 to death" =
+    "From hospitalised\nwith COVID-19\nto death"
+))
+
+
+gg.cancers.group <- a %>%
+  filter(var != "uterus") %>%
+  ggplot() +
+  facet_grid(c_status ~ group, switch = "y") +
+  geom_bar(aes(var, prop, fill = cancer),
+    width = 1, colour = "grey",
+    stat = "identity", position = position_dodge()
+  ) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = c(0.1, 0.2, 0.3, 0.3),
+    limits = c(-0.075, 0.35)
+  ) +
+  scale_fill_manual(values = c(
+    "#FADD20", "#D33675", "#2C08AF",
+    "#C71826", "#FD5200", "#DDD8C4",
+    "#1E1F1F", "#63BDE3"
+  )) +
+  theme(   
+    text = element_text(family = "A"),
+    panel.spacing = unit(0, "lines"),
+    strip.text = element_text(size = 10, face = "bold"),
+    #  panel.grid.major.x = element_blank() ,
+    panel.grid.major.y = element_line(color = "#B7C2C7"),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.text.y.left = element_text(angle = 0),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 10)
+  ) +
+  geom_text(
+    x = 3, y = 0.3,
+    size = 4,
+    label = "30%"
+  ) +
+  coord_polar(start = 0)
+
+gg.cancers.group
+```
+
+
+
+# Table 4: Transitions and cumulative incidence
+
+```{r}
+# events
+levels(r$c_status)
+
+r1 <- r %>%
+  filter(!is.na(medea)) %>%
+  filter(!is.na(smoke.all_time))
+
+events <- rbind(
+  # overall
+  r1 %>%
+    group_by(trans) %>%
+    add_tally() %>%
+    group_by(trans, n) %>%
+    summarise(
+      events = sum(status),
+      time.0 = min(time),
+      time.25 = quantile(time, probs = 0.25),
+      time.50 = quantile(time, probs = 0.5),
+      time.75 = quantile(time, probs = 0.75),
+      time.1 = max(time)
+    ) %>%
+    mutate(time = paste0(time.50, " (", time.0, ", ", time.25, " to ", time.75, ", ", time.1, ")")) %>%
+    mutate(group = "all") %>%
+    mutate(level = "all") %>%
+    select(trans, group, level, n, time, events),
+  # by cancer yes/no
+  r1 %>%
+    group_by(trans, cancer2) %>%
+    add_tally() %>%
+    group_by(trans, n, cancer2) %>%
+    summarise(
+      events = sum(status),
+      time.0 = min(time),
+      time.25 = quantile(time, probs = 0.25),
+      time.50 = quantile(time, probs = 0.5),
+      time.75 = quantile(time, probs = 0.75),
+      time.1 = max(time)
+    ) %>%
+    arrange(trans, cancer2) %>%
+    mutate(time = paste0(time.50, " (", time.0, ", ", time.25, " to ", time.75, ", ", time.1, ")")) %>%
+    mutate(group = "Cancer") %>%
+    mutate(level = cancer2) %>%
+    select(trans, group, level, n, time, events),
+  # by years since diagnosis
+  r1 %>%
+    group_by(trans, c_status) %>%
+    add_tally() %>%
+    group_by(trans, n, c_status) %>%
+    summarise(
+      events = sum(status),
+      time.0 = min(time),
+      time.25 = quantile(time, probs = 0.25),
+      time.50 = quantile(time, probs = 0.5),
+      time.75 = quantile(time, probs = 0.75),
+      time.1 = max(time)
+    ) %>%
+    arrange(trans, c_status) %>%
+    mutate(time = paste0(time.50, " (", time.0, ", ", time.25, " to ", time.75, ", ", time.1, ")")) %>%
+    mutate(group = "Years since diagnosis") %>%
+    mutate(level = c_status) %>%
+    select(trans, group, level, n, time, events),
+  # by hemato_solid
+  r1 %>%
+    group_by(trans, hem_solid) %>%
+    add_tally() %>%
+    group_by(trans, n, hem_solid) %>%
+    summarise(
+      events = sum(status),
+      time.0 = min(time),
+      time.25 = quantile(time, probs = 0.25),
+      time.50 = quantile(time, probs = 0.5),
+      time.75 = quantile(time, probs = 0.75),
+      time.1 = max(time)
+    ) %>%
+    arrange(trans, hem_solid) %>%
+    mutate(time = paste0(time.50, " (", time.0, ", ", time.25, " to ", time.75, ", ", time.1, ")")) %>%
+    mutate(group = "Solid vs Hematological cancer") %>%
+    mutate(level = hem_solid) %>%
+    select(trans, group, level, n, time, events)
+)
+
+# format numbers
+events$n <- nice.num(events$n)
+events$events <- nice.num(events$events)
+# order by transition
+events <- events %>%
+  arrange(trans)
+```
+
+```{r, cache=TRUE}
+covid.data_g <- covid.data
+
+# factors for covid.data ----
+covid.data <- covid.data_g %>%
+  filter(!is.na(medea)) %>%
+  filter(!is.na(smoke.all_time))
+
+# get 67 day cumualative incidence for initial transitions -----
+events.t1_t3 <- events %>%
+  filter(trans %in% c(1:3))
+# cuminc
+c.inc_fit <- list()
+
+quiet <- function(x) {
+  sink(tempfile())
+  on.exit(sink())
+  invisible(force(x))
+}
+
+# overall
+c.inc_fit[["overall"]] <- cuminc(
+  ftime = covid.data$healthy_c.time,
+  fstatus = covid.data$healthy_c.event
+)
+
+
+# by groups
+# use quiet to suppress message about missing values (we only want pop for specific state, others are missing)
+
+groups <- c("cancer2", "c_status", "hem_solid")
+for (i in 1:length(groups)) {
+  message(paste0("Working on ", i, " of ", length(groups)))
+  c.inc_fit[[groups[i]]] <- quiet(cuminc(
+    ftime = covid.data$healthy_c.time,
+    fstatus = covid.data$healthy_c.event,
+    group = covid.data[[groups[i]]]
+  ))
+}
+# extract estimates at 67 days
+tp <- list()
+tp[["overall"]] <- timepoints(c.inc_fit[["overall"]], 67)$est
+for (i in 1:length(groups)) {
+  tp[[groups[i]]] <- timepoints(c.inc_fit[[groups[i]]], 67)$est
+}
+t1 <- data.frame(
+  trans = 1,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[1],
+    tp$cancer2[1:2],
+    tp$c_status[1:4],
+    tp$hem_solid[1:3]
+  )
+)
+
+t2 <- data.frame(
+  trans = 2,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[2],
+    tp$cancer2[3:4],
+    tp$c_status[5:8],
+    tp$hem_solid[4:6]
+  )
+)
+
+t3 <- data.frame(
+  trans = 3,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[3],
+    tp$cancer2[5:6],
+    tp$c_status[9:12],
+    tp$hem_solid[7:9]
+  )
+)
+
+est <- rbind(t1, t2, t3)
+# add to table
+events.t1_t3 <- events.t1_t3 %>%
+  left_join(est,
+    by = c("trans", "group", "level")
+  )
+# format number
+events.t1_t3 <- events.t1_t3 %>%
+  mutate(est = paste0(nice.num2(est * 100), "%"))
+# pivot wide- transitions on same row
+events.t1_t3.wide <- events.t1_t3 %>%
+  pivot_wider(
+    names_from = trans,
+    values_from = c(events, est)
+  )
+# formatting
+events.t1_t3.wide <- events.t1_t3.wide %>%
+  mutate(events_diag.general.pop = paste0(events_1, " (", est_1, ")")) %>%
+  mutate(events_hosp.general.pop = paste0(events_2, " (", est_2, ")")) %>%
+  mutate(events_death.general.pop = paste0(events_3, " (", est_3, ")")) %>%
+  select(group, level, n, time, events_diag.general.pop, events_hosp.general.pop, events_death.general.pop) %>%
+  rename(
+    n.general.pop = n,
+    time.general.pop = time
+  )
+```
+
+
+```{r,cache=TRUE}
+# get 45 day cumualative incidence for transitions from diagnosis ----
+events.t4_t5 <- events %>%
+  filter(trans %in% c(4:5))
+# cuminc
+c.inc_fit <- list()
+
+quiet <- function(x) {
+  sink(tempfile())
+  on.exit(sink())
+  invisible(force(x))
+}
+# use quiet to suppress message about missing values (we only want pop for specific state, others are missing)
+# overall
+c.inc_fit[["overall"]] <- quiet(cuminc(
+  ftime = covid.data$diagnosis_c.time,
+  fstatus = covid.data$diagnosis_c.event
+))
+# by groups
+groups <- c("cancer2", "c_status", "hem_solid")
+for (i in 1:length(groups)) {
+  message(paste0("Working on ", i, " of ", length(groups)))
+  c.inc_fit[[groups[i]]] <- quiet(cuminc(
+    ftime = covid.data$diagnosis_c.time,
+    fstatus = covid.data$diagnosis_c.event,
+    group = covid.data[[groups[i]]]
+  ))
+}
+# extract estimates at 45 days
+tp <- list()
+tp[["overall"]] <- timepoints(c.inc_fit[["overall"]], 45)$est
+for (i in 1:length(groups)) {
+  tp[[groups[i]]] <- timepoints(c.inc_fit[[groups[i]]], 45)$est
+}
+
+t1 <- data.frame(
+  trans = 4,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[1],
+    tp$cancer2[1:2],
+    tp$c_status[1:4],
+    tp$hem_solid[1:3]
+  )
+)
+
+t2 <- data.frame(
+  trans = 5,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[2],
+    tp$cancer2[3:4],
+    tp$c_status[5:8],
+    tp$hem_solid[4:6]
+  )
+)
+
+est <- rbind(t1, t2)
+##
+# add to table
+events.t4_t5 <- events.t4_t5 %>%
+  left_join(est,
+    by = c("trans", "group", "level")
+  )
+# format numbers
+events.t4_t5 <- events.t4_t5 %>%
+  mutate(est = paste0(nice.num2(est * 100), "%"))
+# pivot wide
+events.t4_t5.wide <- events.t4_t5 %>%
+  pivot_wider(
+    names_from = trans,
+    values_from = c(events, est)
+  )
+events.t4_t5.wide <- events.t4_t5.wide %>%
+  mutate(events_hosp.diag = paste0(events_4, " (", est_4, ")")) %>%
+  mutate(events_death.diag = paste0(events_5, " (", est_5, ")")) %>%
+  select(group, level, n, time, events_hosp.diag, events_death.diag) %>%
+  rename(
+    n.diag = n,
+    time.diagn = time
+  )
+```
+
+```{r, cache=TRUE}
+# get 45 days cumualative incidence for transition from hospitalised ----
+events.t6 <- events %>%
+  filter(trans %in% c(6))
+# cuminc
+c.inc_fit <- list()
+
+quiet <- function(x) {
+  sink(tempfile())
+  on.exit(sink())
+  invisible(force(x))
+}
+# use quiet to suppress message about missing values (we only want pop for specific state, others are missing)
+# overall
+
+c.inc_fit[["overall"]] <- quiet(cuminc(
+  ftime = r.hospitalised.death$time,
+  fstatus = r.hospitalised.death$status
+))
+# by groups
+groups <- c("cancer2", "c_status", "hem_solid")
+
+for (i in 1:length(groups)) {
+  message(paste0("Working on ", i, " of ", length(groups)))
+  c.inc_fit[[groups[i]]] <- quiet(cuminc(
+    ftime = r.hospitalised.death$time,
+    fstatus = r.hospitalised.death$status,
+    group = r.hospitalised.death[[groups[i]]]
+  ))
+}
+# extract estimates at 45 days
+tp <- list()
+tp[["overall"]] <- timepoints(c.inc_fit[["overall"]], 45)$est
+for (i in 1:length(groups)) {
+  tp[[groups[i]]] <- timepoints(c.inc_fit[[groups[i]]], 45)$est
+}
+t1 <- data.frame(
+  trans = 6,
+  group = c("all", rep("Cancer", 2), rep("Years since diagnosis", 4), rep("Solid vs Hematological cancer", 3)),
+  level = c(
+    "all", levels(covid.data$cancer2),
+    levels(covid.data$c_status), levels(covid.data$hem_solid)
+  ),
+  est = c(
+    tp$overall[1],
+    tp$cancer2[1:2],
+    tp$c_status[1:4],
+    tp$hem_solid[1:3]
+  )
+)
+
+# add to table
+events.t6 <- events.t6 %>%
+  left_join(t1,
+    by = c("trans", "group", "level")
+  )
+# format number
+events.t6 <- events.t6 %>%
+  mutate(est = paste0(nice.num2(est * 100), "%"))
+# pivot wide for consistency in names etc
+events.t6.wide <- events.t6 %>%
+  pivot_wider(
+    names_from = trans,
+    values_from = c(events, est)
+  )
+events.t6.wide <- events.t6.wide %>%
+  mutate(events_death.hosp = paste0(events_6, " (", est_6, ")")) %>%
+  select(group, level, n, time, events_death.hosp) %>%
+  rename(
+    n.hosp = n,
+    time.hosp = time
+  )
+
+a <- events.t1_t3.wide %>%
+  left_join(events.t4_t5.wide) %>%
+  left_join(events.t6.wide)
+
+a <- a %>%
+  filter(!(level == "cancer-free")) %>%
+  mutate(group = ifelse(group == "Solid vs Hematological cancer", "Cancer type",
+    ifelse(group == "Cancer", "Prior diagnosis of cancer",
+      ifelse(group == "all", "Overall", group)
+    )
+  ))
+
+kable(a,
+  col.names = c(
+    "", "",
+    "n",
+    "Median (min, interquartile range, max)",
+    "Events (cumulative incidence at 67 days)",
+    "Events (cumulative incidence at 67 days)",
+    "Events (cumulative incidence at 67 days",
+    "n",
+    "Median (min, interquartile range, max)",
+    "Events (cumulative incidence at 45 days)",
+    "Events (cumulative incidence at 45 days)",
+    "n",
+    "Median (min, interquartile range, max)",
+    "Events (cumulative incidence at 45 days)"
+  )
+) %>%
+  add_header_above(c(
+    " " = 3,
+    "Follow-up in days",
+    "To diagnosis with COVID-19",
+    "To hospitalised with COVID-19",
+    "To death",
+    " ",
+    "Follow-up in days",
+    "To hospitalised with COVID-19",
+    "To death",
+    " ",
+    "Follow-up in days",
+    "To death"
+  )) %>%
+  add_header_above(c(
+    " " = 2, "From general population" = 5,
+    "From diagnosed with COVID-19" = 4,
+    "From hospitalised with COVID-19" = 3
+  )) %>%
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>%
+  collapse_rows(columns = 1)
+```
+
+
+
+```{r}
+# write.csv2(a,
+#          "M:/Elena - R/Multi-state  cancer/results/events_cancer.csv", row.names=T)
+```
