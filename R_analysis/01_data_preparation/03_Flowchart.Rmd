@@ -29,7 +29,6 @@ library(rsvg)
 #detach("package:DiagrammeRsvg", unload=TRUE)
 
  
-setwd ("M:/Elena - R/Multi-state  cancer/")
  load("1 data prep/exclusion.RData")
  load("1 data prep/working.data.Rda")
 
